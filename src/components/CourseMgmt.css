@@ -1,0 +1,48 @@
+/* Card Styling */
+.card-bg-cr { /* Increased specificity */
+    height: 100px; /* Fixed height for all cards */
+    border: none;
+    border-radius: 15px;
+    transition: transform 0.2s;
+   
+    box-shadow: 5px 5px 10px #9ac2ff;
+  }
+  
+  .card-bg-cr:hover {
+    transform: translateY(-5px); /* Hover effect */
+  }
+  
+  /* Card Title and Text Styling */
+  .card-title {
+    font-size: 1.5rem;
+    font-weight: 600;
+  }
+  
+  .card-text {
+    font-size: 1rem;
+  }
+  
+  /* Fade-In Animation */
+  @keyframes fadeInFromBottom {
+    0% {
+      opacity: 0;
+      transform: translateY(20px);
+    }
+    100% {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+  
+  .main-content-ad-dboard {
+    background-color: #e3eeff;
+    animation: fadeInFromBottom 0.8s ease-out forwards;
+  }
+  
+  /* Ensure parent containers allow cards to grow */
+  .main-content-ad-dboard .col {
+    display: flex;
+  }
+  .card-bg-cr {
+    flex: 1; /* Allow card to fill the height */
+  }
