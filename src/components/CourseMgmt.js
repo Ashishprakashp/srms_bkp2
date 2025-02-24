@@ -5,9 +5,18 @@ import pl_image from './res/login.jpg';
 import './CourseMgmt.css';
 import SideBar from './SideBar.js';
 import { useNavigate } from 'react-router-dom';
+import { useEffect } from 'react';
 
 const CourseMgmt = () => {
   const navigate = useNavigate();
+  useEffect(() => {
+      const isAuthenticated = sessionStorage.getItem('isAuthenticated') === 'true';
+      const user = sessionStorage.getItem('user');
+  
+      if (!isAuthenticated || !user) {
+        navigate('/'); // Redirect to login if not authenticated
+      }
+    }, [navigate]);
   return (
     <>
       <TitleBar />

@@ -2,8 +2,7 @@ import React, { useState } from 'react';
 import { Nav, Image, Collapse } from 'react-bootstrap';
 import pl_image from './res/login.jpg';
 
-const SideBar = () => {
-    // State to manage dropdown visibility
+const SideBar = ({ onLogoutClick }) => {
     const [openFaculty, setOpenFaculty] = useState(false);
     const [openStudent, setOpenStudent] = useState(false);
     const [openCourse, setOpenCourse] = useState(false);
@@ -11,15 +10,14 @@ const SideBar = () => {
 
     return (
         <div className="d-flex vh-100">
-            {/* Sidebar */}
             <div
                 className="bg-dark text-white p-3"
                 style={{
                     width: '250px',
-                    height: '100%', // Full viewport height
-                    position: 'sticky', // Sticky position
-                    top: 0, // Stick to the top
-                    overflowY: 'auto', // Enable scrolling if content overflows
+                    height: '100%',
+                    position: 'sticky',
+                    top: 0,
+                    overflowY: 'auto',
                 }}
             >
                 <div className="text-center mb-3">
@@ -30,13 +28,12 @@ const SideBar = () => {
                         style={{ width: '70px', height: '70px' }}
                         alt="Profile"
                     />
-                    <h4>My Sidebar</h4>
+                    <h4>Admin Panel</h4>
                 </div>
 
                 <Nav className="flex-column">
-                    {/* Home */}
-                    <Nav.Link href="#" className="text-white mb-2">
-                        Home
+                    <Nav.Link href="#home" className="text-white mb-2">
+                        Dashboard Home
                     </Nav.Link>
 
                     {/* Faculty Management */}
@@ -52,14 +49,14 @@ const SideBar = () => {
                         </Nav.Link>
                         <Collapse in={openFaculty}>
                             <div id="faculty-collapse" className="ms-3">
-                                <Nav.Link href="#" className="text-white">
+                                <Nav.Link href="#create-faculty" className="text-white">
                                     Create Faculty
                                 </Nav.Link>
-                                <Nav.Link href="#" className="text-white">
-                                    Reset Faculty Password
+                                <Nav.Link href="#reset-faculty" className="text-white">
+                                    Reset Password
                                 </Nav.Link>
-                                <Nav.Link href="#" className="text-white">
-                                    View Faculty List
+                                <Nav.Link href="#faculty-list" className="text-white">
+                                    View Faculty
                                 </Nav.Link>
                             </div>
                         </Collapse>
@@ -78,14 +75,14 @@ const SideBar = () => {
                         </Nav.Link>
                         <Collapse in={openStudent}>
                             <div id="student-collapse" className="ms-3">
-                                <Nav.Link href="#" className="text-white">
+                                <Nav.Link href="#create-student" className="text-white">
                                     Create Student
                                 </Nav.Link>
-                                <Nav.Link href="#" className="text-white">
-                                    Reset Student Password
+                                <Nav.Link href="#reset-student" className="text-white">
+                                    Reset Password
                                 </Nav.Link>
-                                <Nav.Link href="#" className="text-white">
-                                    View Student List
+                                <Nav.Link href="#student-list" className="text-white">
+                                    View Students
                                 </Nav.Link>
                             </div>
                         </Collapse>
@@ -104,14 +101,14 @@ const SideBar = () => {
                         </Nav.Link>
                         <Collapse in={openCourse}>
                             <div id="course-collapse" className="ms-3">
-                                <Nav.Link href="#" className="text-white">
+                                <Nav.Link href="#add-course" className="text-white">
                                     Add Course
                                 </Nav.Link>
-                                <Nav.Link href="#" className="text-white">
+                                <Nav.Link href="#edit-course" className="text-white">
                                     Edit Course
                                 </Nav.Link>
-                                <Nav.Link href="#" className="text-white">
-                                    View Course List
+                                <Nav.Link href="#course-list" className="text-white">
+                                    Course List
                                 </Nav.Link>
                             </div>
                         </Collapse>
@@ -130,17 +127,29 @@ const SideBar = () => {
                         </Nav.Link>
                         <Collapse in={openGrade}>
                             <div id="grade-collapse" className="ms-3">
-                                <Nav.Link href="#" className="text-white">
+                                <Nav.Link href="#add-grades" className="text-white">
                                     Add Grades
                                 </Nav.Link>
-                                <Nav.Link href="#" className="text-white">
+                                <Nav.Link href="#edit-grades" className="text-white">
                                     Edit Grades
                                 </Nav.Link>
-                                <Nav.Link href="#" className="text-white">
+                                <Nav.Link href="#view-grades" className="text-white">
                                     View Grades
                                 </Nav.Link>
                             </div>
                         </Collapse>
+                    </div>
+
+                    {/* Logout Section */}
+                    <div className="mt-4 border-top pt-3">
+                        <Nav.Link
+                            onClick={onLogoutClick}
+                            className="text-white"
+                            style={{ cursor: 'pointer' }}
+                        >
+                            <i className="bi bi-box-arrow-right me-2"></i>
+                            Logout
+                        </Nav.Link>
                     </div>
                 </Nav>
             </div>

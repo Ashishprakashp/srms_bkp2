@@ -8,6 +8,7 @@ import SideBar from "./SideBar.js";
 import { useNavigate } from "react-router-dom";
 import Folder from "./res/folder.png";
 import './AdminDashboard.css';
+import { useEffect } from "react";
 
 export default function FacultyLoginCr() {
     const navigate = useNavigate();
@@ -27,6 +28,15 @@ export default function FacultyLoginCr() {
     const [userData, setUserData] = useState([]); // State for user data in Reset Login
     const [selectedUser, setSelectedUser] = useState(null); // State for selected user in Reset Login
     const [errorMessage, setErrorMessage] = useState(""); // State for error messages
+
+    useEffect(() => {
+        const isAuthenticated = sessionStorage.getItem('isAuthenticated') === 'true';
+        const user = sessionStorage.getItem('user');
+    
+        if (!isAuthenticated || !user) {
+          navigate('/'); // Redirect to login if not authenticated
+        }
+      }, [navigate]);
 
     const getTimestamp = () => new Date().toISOString().replace(/[-T:]/g, "_").split(".")[0];
 

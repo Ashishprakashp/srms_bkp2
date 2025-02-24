@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Container, Row, Col, Form, Button } from 'react-bootstrap';
 import "./AdminLogin.css";
 import TitleBar from './TitleBar.js';
@@ -11,6 +11,10 @@ export default function AdminLogin() {
     const [uname, setUname] = useState('');
     const [password, setPassword] = useState('');
 
+    useEffect(()=>{
+        sessionStorage.clear();
+        
+    });
     const handleSubmit = async (e) => {
         e.preventDefault();
     
@@ -21,8 +25,10 @@ export default function AdminLogin() {
             });
     
             console.log('Full response:', response);
-    
+
             if (response.data.message === 'Login successful') {
+                sessionStorage.setItem('isAuthenticated','true');
+                sessionStorage.setItem('user',uname);
                 navigate('/admin-dashboard');
             } else {
                 console.log('Login failed:', response.data.message);
