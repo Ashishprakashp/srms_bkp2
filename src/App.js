@@ -7,6 +7,7 @@ import FacultyMgmt from './components/FacultyMgmt.js';
 import FacultyLoginCr from './components/FacultyLoginCr.js';
 import StudentMgmt from './components/StudentMgmt.js';
 import CourseMgmt from './components/CourseMgmt.js';
+import CreateCourse from './components/CreateCourse.js';
 
 function App() {
   return (
@@ -17,6 +18,7 @@ function App() {
         <Route path='/admin-dashboard/faculty-mgmt' element={<FacultyMgmt/>}/>  
         <Route path='/admin-dashboard/student-mgmt' element={<StudentMgmt/>}/>  
         <Route path='/admin-dashboard/course-mgmt' element={<CourseMgmt/>}/>
+        <Route path='/admin-dashboard/course-mgmt/create-course' element={<CreateCourse/>}/>
       </Routes> 
     </Router>
   );
