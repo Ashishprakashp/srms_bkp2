@@ -9,9 +9,11 @@ import { useNavigate } from "react-router-dom";
 import Folder from "./res/folder.png";
 import './AdminDashboard.css';
 import { useEffect } from "react";
+import axios from 'axios';
 
 export default function FacultyLoginCr() {
     const navigate = useNavigate();
+    const [loading, setLoading] = useState(true);
     const [fileName, setFileName] = useState("");
     const [users, setUsers] = useState([]);
     const [user, setUser] = useState({
@@ -29,14 +31,27 @@ export default function FacultyLoginCr() {
     const [selectedUser, setSelectedUser] = useState(null); // State for selected user in Reset Login
     const [errorMessage, setErrorMessage] = useState(""); // State for error messages
 
-    useEffect(() => {
-        const isAuthenticated = sessionStorage.getItem('isAuthenticated') === 'true';
-        const user = sessionStorage.getItem('user');
-    
-        if (!isAuthenticated || !user) {
-          navigate('/'); // Redirect to login if not authenticated
+    // Update the useEffect block in FacultyLoginCr component
+// Update the useEffect block to match CourseMgmt's authentication pattern
+useEffect(() => {
+    const verifyAuth = async () => {
+        try {
+            const response = await axios.get('http://localhost:5000/check-auth', {
+                withCredentials: true
+            });
+            
+            if (!response.data.authenticated) {
+                navigate('/');
+            }
+        } catch (error) {
+            navigate('/');
+        } finally {
+            setLoading(false);
         }
-      }, [navigate]);
+    };
+
+    verifyAuth();
+}, [navigate]);  // Remove sessionCheck and only keep backend verification  
 
     const getTimestamp = () => new Date().toISOString().replace(/[-T:]/g, "_").split(".")[0];
 

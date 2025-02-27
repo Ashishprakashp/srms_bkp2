@@ -156,5 +156,84 @@ app.post('/create-course', isAuthenticated, async (req, res) => {
   }
 });
 
+//Delete course
+// Example backend route (Express.js)
+// Delete course route
+app.post('/delete-course', isAuthenticated, async (req, res) => {
+  try {
+    const { course_id, password } = req.body;
+    const username = req.session.user.username;
+
+    // Validate input
+    if (!username || !password || !course_id) {
+      return res.status(400).json({ success: false, message: 'Missing required fields' });
+    }
+
+    // Verify admin credentials
+    const admin = await adminuser.findOne({ username });
+    if (!admin) {
+      return res.status(401).json({ success: false, message: 'Invalid credentials' });
+    }
+
+    // Verify password
+    const isMatch = await bcrypt.compare(password, admin.password);
+    if (!isMatch) {
+      return res.status(401).json({ success: false, message: 'Invalid password' });
+    }
+
+    // Verify course exists
+    const course = await Course.findById(course_id);
+    if (!course) {
+      return res.status(404).json({ success: false, message: 'Course not found' });
+    }
+
+    // Delete the course
+    await Course.findByIdAndDelete(course_id);
+
+    res.status(200).json({ 
+      success: true,
+      message: 'Course deleted successfully'
+    });
+
+  } catch (error) {
+    console.error('Delete course error:', error);
+    res.status(500).json({ 
+      success: false,
+      message: error.message || 'Failed to delete course'
+    });
+  }
+});
+
+//Fetch the courses for admin
+app.get('/fetch-courses-admin',async(req,res)=>{
+  try{
+    const courses = await Course.find({});
+    if(courses.length===0){
+      return res.status(404).json({ error: "No courses found" });
+    }
+    res.json(courses);
+  }catch(error){
+    res.status(500).json({ error: "Internal server error" });
+  }
+
+});
+//Fetch regulations
+// Fetch regulations for a course
+app.get('/fetch-regulations/:courseId', async (req, res) => {
+  try {
+    const course = await Course.findById(req.params.courseId)
+      .populate('regulations')
+      .exec();
+
+    if (!course) {
+      return res.status(404).json({ error: "Course not found" });
+    }
+
+    res.json(course.regulations);
+  } catch (error) {
+    console.error('Error fetching regulations:', error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => console.log(`Server running on http://localhost:${PORT}`));
