@@ -13,3 +13,35 @@ height: calc(100% - 73px);
 height: 100%;
 }
 }
+
+/* Fade-in animation for the form */
+@keyframes fadeInUp {
+    from {
+      opacity: 0;
+      transform: translateY(20px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+  
+  /* Fade-in animation for the background */
+  @keyframes fadeIn {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+  
+  /* Apply animation to the form */
+  .fade-in-form {
+    animation: fadeInUp 1s ease-out;
+  }
+  
+  /* Apply animation to the background */
+  .fade-in-background {
+    animation: fadeIn 1.5s ease-out;
+  }

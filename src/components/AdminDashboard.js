@@ -11,6 +11,7 @@ const AdminDashboard = () => {
   const [showLogoutModal, setShowLogoutModal] = useState(false);
   const [loading, setLoading] = useState(true);
   const [user, setUser] = useState(null);
+  const imageUrl = "./res/card_bg_1.jpg";
 
   useEffect(() => {
     const verifySession = async () => {
@@ -22,28 +23,30 @@ const AdminDashboard = () => {
         if (response.data.authenticated) {
           setUser(response.data.user);
         } else {
-          navigate('/');
+          navigate('/', { replace: true }); // Replace history entry
         }
       } catch (error) {
-        navigate('/');
+        navigate('/', { replace: true }); // Replace history entry
       } finally {
         setLoading(false);
       }
     };
-
+  
     verifySession();
   }, [navigate]);
 
-  const handleLogout = async () => {
-    try {
-      await axios.post('http://localhost:5000/logout', {}, {
-        withCredentials: true
-      });
-    } finally {
-      navigate('/');
-      window.location.reload();
-    }
-  };
+
+
+const handleLogout = async () => {
+  try {
+    await axios.post('http://localhost:5000/logout', {}, {
+      withCredentials: true
+    });
+  } finally {
+    navigate('/', { replace: true }); // Replace history entry
+    window.location.reload(); // Optional: Refresh the page to clear state
+  }
+};
 
   if (loading) {
     return (
@@ -69,14 +72,14 @@ const AdminDashboard = () => {
 
             {showLogoutModal && (
               <div className="logout-modal-overlay">
-                <div className="logout-modal-content">
-                  <h3>Confirm Logout</h3>
-                  <div className="modal-buttons mt-4">
-                    <Button variant="secondary" onClick={() => setShowLogoutModal(false)}>
+                <div className="logout-modal-content p-5">
+                  <h3 className='text-center'>Confirm Logout ?</h3>
+                  <div className="modal-buttons mt-5" style={{ display: 'flex', justifyContent: 'center' }}>
+                    <Button variant="secondary" className='fs-5 px-5' onClick={() => setShowLogoutModal(false)}>
                       Cancel
                     </Button>
-                    <Button variant="danger" onClick={handleLogout}>
-                      Confirm Logout
+                    <Button variant="danger" className='fs-5 px-5' onClick={handleLogout}>
+                     Logout
                     </Button>
                   </div>
                 </div>
@@ -91,7 +94,7 @@ const AdminDashboard = () => {
                 ['Grade Management', 'card-4', '/admin-dashboard/grade-mgmt']
               ].map(([title, cardClass, path], index) => (
                 <Col key={index}>
-                  <Card className={`card-bg ${cardClass}`} onClick={() => navigate(path)}>
+                  <Card className={`card-bg ${cardClass}`} onClick={() => navigate(path)} >
                     <Card.Body>
                       <Card.Title>{title}</Card.Title>
                       <Card.Text>

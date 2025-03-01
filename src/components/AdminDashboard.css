@@ -38,6 +38,20 @@
   background-color: #e3eeff;
   animation: fadeInFromBottom 0.8s ease-out forwards;
 }
+.main-content-ad-dboard::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-image: url('./res/card_bg_2.jpg');
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  opacity: 1; /* Adjust the opacity here (0 = fully transparent, 1 = fully opaque) */
+  z-index: 0; /* Place the pseudo-element behind the content */
+}
 
 /* Ensure parent containers allow cards to grow */
 .main-content-ad-dboard .col {
@@ -92,10 +106,31 @@
   gap: 1rem;
 }
 
-/* Card Hover Effects */
 .card-bg {
-  transition: transform 0.2s ease-in-out;
+  position: relative; /* Required for pseudo-element positioning */
   cursor: pointer;
+  transition: transform 0.2s ease-in-out;
+  overflow: hidden; /* Ensures the pseudo-element doesn't overflow */
+}
+
+.card-bg::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-image: url('./res/card_bg_5.jpg');
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  opacity: 0.3; /* Adjust the opacity here (0 = fully transparent, 1 = fully opaque) */
+  z-index: 0; /* Place the pseudo-element behind the content */
+}
+
+.card-bg > * {
+  position: relative; /* Ensure the content is above the pseudo-element */
+  z-index: 1; /* Bring the content to the front */
 }
 
 .card-bg:hover {

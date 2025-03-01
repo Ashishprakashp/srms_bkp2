@@ -8,6 +8,7 @@ import Course from './schemas/Course.js';
 import session from 'express-session';
 import MongoStore from 'connect-mongo';
 import cookieParser from 'cookie-parser';
+import Faculty from './schemas/Faculty.js';
 
 dotenv.config();
 
@@ -49,6 +50,12 @@ mongoose.connect(process.env.MONGO_URI, {
 })
 .then(() => console.log("MongoDB Connected!"))
 .catch(err => console.log(err));
+
+// Password hashing and verification functions
+const hashPassword = async (password) => {
+  const saltRounds = 10;
+  return await bcrypt.hash(password, saltRounds);
+};
 
 // Auth middleware
 const isAuthenticated = (req, res, next) => {
@@ -221,19 +228,160 @@ app.get('/fetch-courses-admin',async(req,res)=>{
 // Fetch regulations for a course
 app.get('/fetch-regulations/:courseId', async (req, res) => {
   try {
-    const course = await Course.findById(req.params.courseId)
-      .populate('regulations')
-      .exec();
+    console.log("Fetching regulations for course ID:", req.params.courseId);
 
+    // Find the course by ID
+    const course = await Course.findById(req.params.courseId).exec();
+
+    console.log("Course found:", course);
+
+    // Check if the course exists
     if (!course) {
+      console.log("Course not found");
       return res.status(404).json({ error: "Course not found" });
     }
 
+    // Check if the regulations field exists
+    if (!course.regulations || course.regulations.length === 0) {
+      console.log("No regulations found for this course");
+      return res.json([]); // Return an empty array
+    }
+
+    console.log("Regulations fetched successfully:", course.regulations);
+
+    // Send the regulations as a response
     res.json(course.regulations);
   } catch (error) {
     console.error('Error fetching regulations:', error);
     res.status(500).json({ error: "Internal server error" });
   }
 });
+
+app.post('/add-regulation/:courseId', async (req, res) => {
+  try {
+    const { year } = req.body; // Extract year from the request body
+    console.log("year: "+year);
+    const courseId = req.params.courseId; // Extract courseId from the URL
+
+    console.log("Adding regulation to course ID:", courseId);
+
+    // Find the course by ID
+    const course = await Course.findById(courseId).exec();
+
+    // Check if the course exists
+    if (!course) {
+      console.log("Course not found");
+      return res.status(404).json({ error: "Course not found" });
+    }
+
+    // Add the new regulation to the course's regulations array
+    course.regulations.push({ year }); // Only the "year" field is required
+    await course.save(); // Save the updated course
+
+    console.log("Regulation added successfully:", course.regulations);
+
+    // Return the updated regulations
+    res.json(course.regulations);
+  } catch (error) {
+    console.error('Error adding regulation:', error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+app.post('/admin-dashboard/faculty-mgmt/add', async (req, res) => {
+  try {
+    const faculties = req.body.users;
+    console.log("1");
+    
+    // Log the input data for debugging
+    console.log("Input Faculties:", faculties);
+
+    // Find existing faculties
+    let existingFaculties;
+    try {
+      existingFaculties = await Faculty.find({ facultyId: { $in: faculties.map(f => f.facultyId) } });
+      console.log("2");
+    } catch (findError) {
+      console.error("Error finding existing faculties:", findError);
+      throw findError; // Re-throw the error to be caught by the outer catch block
+    }
+
+    const existingFacultyIds = existingFaculties.map(f => f.facultyId);
+    console.log("3");
+    
+    // Filter out new faculties
+    const newFaculties = faculties.filter(f => !existingFacultyIds.includes(f.facultyId));
+    console.log("4");
+
+    // Hash passwords for new faculties
+    const hashedNewFaculties = await Promise.all(
+      newFaculties.map(async (faculty) => {
+        const hashedPassword = await hashPassword(faculty.password); // Hash the password
+        return {
+          ...faculty,
+          password: hashedPassword, // Replace plain password with hashed password
+        };
+      })
+    );
+
+    console.log("Hashed New Faculties:", hashedNewFaculties);
+    
+    if (hashedNewFaculties.length > 0) {
+      try {
+        await Faculty.insertMany(hashedNewFaculties); // Insert new faculties with hashed passwords
+        console.log("5");
+      } catch (insertError) {
+        console.error("Error inserting new faculties:", insertError);
+        throw insertError; // Re-throw the error to be caught by the outer catch block
+      }
+    }
+
+    res.status(200).json({
+      message: hashedNewFaculties.length > 0 ? "New faculty details saved successfully" : "No new faculty added",
+      newFaculties: hashedNewFaculties,
+      existingFaculties: existingFaculties
+    });
+  } catch (error) {
+    console.error("Error in /admin-dashboard/faculty-mgmt/add:", error);
+    res.status(500).send("Error saving faculty details: " + error.message);
+  }
+});
+
+app.post("/search-faculty", async (req, res) => {
+  try {
+      const { facultyId, userName } = req.body;
+
+      let query = {};
+      if (facultyId) query.facultyId = facultyId;
+      if (userName) query.name = { $regex: userName, $options: "i" }; // Case-insensitive search
+
+      const faculties = await Faculty.find(query);
+      res.status(200).json(faculties);
+  } catch (error) {
+      console.error("Error searching faculty:", error);
+      res.status(500).json({ message: "Failed to search faculty." });
+  }
+});
+
+app.post("/reset-faculty-password", async (req, res) => {
+  try {
+      const { facultyId, newPassword } = req.body;
+
+      // Hash the new password
+      const hashedPassword = await bcrypt.hash(newPassword, 10);
+
+      // Update the faculty's password in the database
+      await Faculty.updateOne(
+          { facultyId },
+          { $set: { password: hashedPassword, reset: 1 } }
+      );
+
+      res.status(200).json({ message: "Password reset successfully." });
+  } catch (error) {
+      console.error("Error resetting password:", error);
+      res.status(500).json({ message: "Failed to reset password." });
+  }
+});
+
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => console.log(`Server running on http://localhost:${PORT}`));

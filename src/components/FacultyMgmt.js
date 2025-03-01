@@ -17,11 +17,13 @@ export default function FacultyLoginCr() {
     const [fileName, setFileName] = useState("");
     const [users, setUsers] = useState([]);
     const [user, setUser] = useState({
-        userId: "",
+        facultyId: "",
         title: "--Title--",
+        courtesy_title: "--Courtesy Title--",
         name: "",
         designation: "--Designation--",
-        pwd: "",
+        additional_role:"--Additional Role--",
+        password: "",
         reset: 0,
     });
     const [showCreateLogin, setShowCreateLogin] = useState(false); // State to toggle UI
@@ -67,7 +69,7 @@ useEffect(() => {
     const handleDownloadTemplate = () => {
         // Sample data for the template
         const data = [
-            ["User ID", "Title", "Courtesy Title", "Name", "Designation"], // Example row
+            ["Faculty ID", "Title", "Courtesy Title", "Name", "Designation","Additional Role"], // Example row
         ];
 
         // Create a worksheet
@@ -82,19 +84,21 @@ useEffect(() => {
     };
 
     const handleAddUser = () => {
-        const { userId, title, name, designation } = user;
-        if (!userId || !name || title === "--Title--" || designation === "--Designation--") {
+        const { facultyId, title,courtesy_title, name, designation,additional_role } = user;
+        if (!facultyId || !name || title === "--Title--" || courtesy_title=== "--Courtesy Title--"|| designation === "--Designation--" || additional_role === "--Designation--") {
             alert("Please fill all fields correctly!");
             return;
         }
-        const newUser = { ...user, pwd: nanoid(12) };
+        const newUser = { ...user, password: nanoid(12) };
         setUsers([...users, newUser]);
         setUser({
-            userId: "",
+            facultyId: "",
             title: "--Title--",
+            title: "--Courtesy Title--",
             name: "",
             designation: "--Designation--",
-            pwd: "",
+            additional_role: "--Additional Role--",
+            password: "",
             reset: 0,
         });
     };
@@ -112,89 +116,160 @@ useEffect(() => {
             reader.readAsArrayBuffer(file);
         });
 
-    const generateFile = async () => {
-        const inputElement = document.getElementById("file");
-        if (!fileName || inputElement.files.length === 0) {
-            alert("Please upload a file first!");
-            return;
-        }
-
-        try {
-            const jsonData = await readXLSFile(inputElement.files[0]);
-            const formattedData = jsonData.map((item) => ({
-                userId: item["User ID"] || "",
-                title: item["Title"] || "--Title--",
-                name: item["Name"] || "",
-                designation: item["Designation"] || "--Designation--",
-                pwd: nanoid(12),
-                reset: 0,
-            }));
-
-            setUsers((prev) => [...prev, ...formattedData]);
-            generateXLS(formattedData);
-        } catch (error) {
-            alert("Error reading file: " + error.message);
-        }
-    };
+        const generateFile = async () => {
+            const inputElement = document.getElementById("fileInput");
+            if (!inputElement || inputElement.files.length === 0) {
+                alert("Please upload a file first!");
+                return;
+            }
+        
+            try {
+                // Read the Excel file
+                const jsonData = await readXLSFile(inputElement.files[0]);
+        
+                // Validate the Excel data
+                const requiredColumns = ["Faculty ID", "Title", "Courtesy Title", "Name", "Designation", "Additional Role"];
+                const hasRequiredColumns = requiredColumns.every((column) =>
+                    jsonData.some((row) => column in row)
+                );
+        
+                if (!hasRequiredColumns) {
+                    throw new Error("The uploaded file is missing required columns.");
+                }
+        
+                // Format the data
+                const formattedData = jsonData.map((item) => ({
+                    facultyId: item["Faculty ID"] || "",
+                    title: item["Title"] || "--Title--",
+                    courtesy_title: item["Courtesy Title"] || "--Title--",
+                    name: item["Name"] || "",
+                    designation: item["Designation"] || "--Designation--",
+                    additional_role: item["Additional Role"] || "--Additional Role--",
+                    password: nanoid(12), // Generate a random password
+                    reset: 0,
+                }));
+        
+                // Update the users state
+                setUsers(formattedData); // Replace existing data instead of appending
+        
+                // Generate the Excel file
+                await generateXLS(formattedData);
+        
+                alert("File processed successfully!");
+            } catch (error) {
+                alert("Error reading or processing file: " + error.message);
+            }
+        };
 
     const generateXLS = async (data) => {
-        if (!data.length) return;
-        const ws = XLSX.utils.json_to_sheet(
-            data.map(({ userId, name, pwd }) => ({ "User ID": userId, Name: name, Password: pwd, reset: 0 }))
-        );
-        const wb = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(wb, ws, "FacultyCredentials");
-        XLSX.writeFile(wb, `FACULTY_CREDENTIALS_${getTimestamp()}.xls`);
+        if (!data.length){
+            alert("Add at least 1 faculty!");
+            return;
+        } 
+    
+        try {
+            // Convert data to Excel sheet
+            const ws = XLSX.utils.json_to_sheet(
+                data.map(({ facultyId, name, password }) => ({
+                    "User ID": facultyId,
+                    Name: name,
+                    Password: password,
+                    reset: 0,
+                }))
+            );
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, "FacultyCredentials");
+    
+            // Send data to the backend
+            const response = await axios.post('http://localhost:5000/admin-dashboard/faculty-mgmt/add', {
+                users: data, // Use the `data` parameter instead of `users`
+            });
+    
+            // Check if the request was successful
+            if (response.status === 200) {
+                // Save the Excel file
+                XLSX.writeFile(wb, `FACULTY_CREDENTIALS_${getTimestamp()}.xls`);
+                alert("Faculty credentials created successfully!");
+            } else {
+                alert("Error creating login!");
+            }
+        } catch (error) {
+            console.error("Error generating XLS or sending data:", error);
+            alert("An error occurred. Please try again.");
+        } finally {
+            // Clear the users state (assuming `setUsers` is a React state setter)
+            setUsers([]);
+        }
     };
 
     // Simulate search functionality for Reset Login
-    const searchUser = (e) => {
-        e.preventDefault();
-
-        const userId = e.target.userId.value.trim();
-        const userName = e.target.userName.value.trim();
-
-        if (!userId && !userName) {
-            alert("No User ID or name provided!");
+    const searchUser = async (e) => {
+        e.preventDefault(); // Prevent form submission
+    
+        const formData = new FormData(e.target);
+        const facultyId = formData.get("facultyId");
+        const userName = formData.get("userName");
+    
+        if (!facultyId && !userName) {
+            setErrorMessage("Please enter either Faculty ID or Name.");
             return;
         }
-
-        // Simulate fetching user data
-        const mockData = [
-            { userId: "123", name: "John Doe", pwd: "oldpassword123" },
-            { userId: "456", name: "Jane Smith", pwd: "oldpassword456" },
-        ];
-
-        if (mockData.length > 0) {
-            setUserData(mockData);
-            setSelectedUser(mockData[0]); // Select first result
-            setErrorMessage("");
-        } else {
+    
+        try {
+            // Fetch faculty data from the backend
+            const response = await axios.post("http://localhost:5000/search-faculty", {
+                facultyId,
+                userName,
+            });
+    
+            if (response.data.length === 0) {
+                setErrorMessage("No faculty found with the given criteria.");
+                setUserData([]);
+                setSelectedUser(null);
+            } else {
+                setUsers(response.data);
+                setSelectedUser(response.data);
+                setUserData(response.data); // Update the userData state with fetched data
+                setErrorMessage(""); // Clear any previous error messages
+            }
+        } catch (error) {
+            console.error("Error fetching faculty data:", error);
+            setErrorMessage("Failed to fetch faculty data. Please try again.");
             setUserData([]);
-            setErrorMessage("No user found.");
+            setSelectedUser(null);
         }
     };
 
     // Simulate password reset functionality for Reset Login
-    const handleResetPassword = (e) => {
-        e.preventDefault();
-
-        const pwd1 = e.target.pwd1.value;
-        const pwd2 = e.target.pwd2.value;
-
-        if (pwd1 !== pwd2) {
-            alert("Passwords do not match!");
+    const handleResetPassword = async (e) => {
+        e.preventDefault(); // Prevent form submission
+    
+        const formData = new FormData(e.target);
+        const password1 = formData.get("password1");
+        const password2 = formData.get("password2");
+    
+        if (password1 !== password2) {
+            setErrorMessage("Passwords do not match.");
             return;
         }
-
-        if (!selectedUser?.userId) {
-            alert("No user selected for password reset.");
-            return;
+    
+        try {
+            // Send the new password to the backend
+            const response = await axios.post("http://localhost:5000/reset-faculty-password", {
+                facultyId: selectedUser.facultyId,
+                newPassword: password1,
+            });
+    
+            if (response.status === 200) {
+                alert("Password reset successfully!");
+                setSelectedUser(null); // Clear the selected user
+                setUserData([]); // Clear the user data
+                setErrorMessage(""); // Clear any error messages
+            }
+        } catch (error) {
+            console.error("Error resetting password:", error);
+            setErrorMessage("Failed to reset password. Please try again.");
         }
-
-        // Simulate password reset
-        alert(`Password reset for ${selectedUser.name} (${selectedUser.userId}) to: ${pwd1}`);
-        setShowResetLogin(false);
     };
 
     return (
@@ -244,11 +319,19 @@ useEffect(() => {
                                             <Col>
                                                 <Form.Control
                                                     type="text"
-                                                    name="userId"
-                                                    placeholder="User ID"
-                                                    value={user.userId}
+                                                    name="facultyId"
+                                                    placeholder="Faculty ID"
+                                                    value={user.facultyId}
                                                     onChange={handleInputChange}
                                                 />
+                                            </Col>
+                                            <Col>
+                                                <Form.Select name="courtesy_title" value={user.courtesy_title} onChange={handleInputChange}>
+                                                    <option>--Courtesy Title--</option>
+                                                    <option>Mr.</option>
+                                                    <option>Ms.</option>
+                                                    <option>Mrs.</option>
+                                                </Form.Select>
                                             </Col>
                                             <Col>
                                                 <Form.Select name="title" value={user.title} onChange={handleInputChange}>
@@ -257,7 +340,10 @@ useEffect(() => {
                                                     <option>Dr.</option>
                                                 </Form.Select>
                                             </Col>
-                                            <Col>
+                                            
+                                        </Row>
+                                        <Row className="mb-3">
+                                        <Col>
                                                 <Form.Control
                                                     type="text"
                                                     name="name"
@@ -273,6 +359,16 @@ useEffect(() => {
                                                     <option>Asst. Professor</option>
                                                     <option>Professor</option>
                                                     <option>Head Of Dept.</option>
+                                                </Form.Select>
+                                            </Col>
+                                            <Col>
+                                                <Form.Select name="additional_role" value={user.additional_role} onChange={handleInputChange}>
+                                                    <option>--Additional Role--</option>
+                                                    <option>Nil</option>
+                                                    <option>Faculty Advisor</option>
+                                                    <option>Spokesperson</option>
+                                                    
+                                                    
                                                 </Form.Select>
                                             </Col>
                                         </Row>
@@ -308,7 +404,7 @@ useEffect(() => {
                             <Row className="mb-4">
                                 <Col className="text-center">
                                     <h1 className="mb-3">Auto Faculty Credentials Creation</h1>
-                                    <p className="text-muted">Upload faculty data in bulk using the Excel template format</p>
+                                    
                                 </Col>
                             </Row>
 
@@ -317,7 +413,7 @@ useEffect(() => {
                                     <Card className="shadow-sm border-0">
                                         <Card.Body className="p-4">
                                             <div className="text-center mb-5">
-                                                <h4 className="mb-4">Step 1: Download Template</h4>
+                                                
                                                 <Button 
                                                     variant="outline-success" 
                                                     className="rounded-pill px-4 py-2"
@@ -332,7 +428,7 @@ useEffect(() => {
                                             </div>
 
                                             <div className="text-center">
-                                                <h4 className="mb-4">Step 2: Upload Filled Template</h4>
+                                                <h4 className="mb-4">Upload Filled Template</h4>
                                                 <Form>
                                                     <Form.Group className="mb-4">
                                                         <Form.Label 
@@ -429,7 +525,7 @@ useEffect(() => {
                                             <Col>
                                                 <Form.Control
                                                     type="text"
-                                                    name="userId"
+                                                    name="facultyId"
                                                     placeholder="User ID"
                                                     className="field"
                                                 />
@@ -461,24 +557,7 @@ useEffect(() => {
                             {userData.length > 0 && (
                                 <Row className="mb-4">
                                     <Col>
-                                        <Table striped bordered hover responsive>
-                                            <thead>
-                                                <tr>
-                                                    <th>User ID</th>
-                                                    <th>Name</th>
-                                                    <th>Password</th>
-                                                </tr>
-                                            </thead>
-                                            <tbody>
-                                                {userData.map((user, index) => (
-                                                    <tr key={index}>
-                                                        <td>{user.userId}</td>
-                                                        <td>{user.name}</td>
-                                                        <td>{user.pwd}</td>
-                                                    </tr>
-                                                ))}
-                                            </tbody>
-                                        </Table>
+                                        <FacultyTable users={users} />
                                     </Col>
                                 </Row>
                             )}
@@ -491,7 +570,7 @@ useEffect(() => {
                                                 <Col>
                                                     <Form.Control
                                                         type="password"
-                                                        name="pwd1"
+                                                        name="password1"
                                                         placeholder="New Password"
                                                         className="field"
                                                         required
@@ -500,7 +579,7 @@ useEffect(() => {
                                                 <Col>
                                                     <Form.Control
                                                         type="password"
-                                                        name="pwd2"
+                                                        name="password2"
                                                         placeholder="Re-Enter Password"
                                                         className="field"
                                                         required
@@ -533,25 +612,35 @@ const FacultyTable = ({ users, removeUser }) => (
                 <Table striped bordered hover responsive className="sticky-header">
                     <thead>
                         <tr>
-                            <th>User ID</th>
+                            <th>Faculty ID</th>
                             <th>Name</th>
                             <th>Title</th>
+                            <th>Courtesy Title</th>
                             <th>Designation</th>
-                            <th>Action</th>
+                            <th>Additional Role</th>
+                            {removeUser && 
+                                <th>Action</th>
+                            }
+                            
                         </tr>
                     </thead>
                     <tbody>
                         {users.map((user, index) => (
                             <tr key={index}>
-                                <td>{user.userId}</td>
-                                <td>{user.name}</td>
+                                <td>{user.facultyId}</td>
                                 <td>{user.title}</td>
+                                <td>{user.courtesy_title}</td>
+                                <td>{user.name}</td>
                                 <td>{user.designation}</td>
-                                <td>
+                                <td>{user.additional_role}</td>
+                                {removeUser &&
+                                    <td>
                                     <Button variant="danger" onClick={() => removeUser(index)}>
                                         Remove
                                     </Button>
                                 </td>
+                                }
+                                
                             </tr>
                         ))}
                     </tbody>

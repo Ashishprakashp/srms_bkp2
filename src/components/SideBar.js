@@ -28,11 +28,11 @@ const SideBar = ({ onLogoutClick }) => {
                         style={{ width: '70px', height: '70px' }}
                         alt="Profile"
                     />
-                    <h4>Admin Panel</h4>
+                    <h4>Admin</h4>
                 </div>
 
                 <Nav className="flex-column">
-                    <Nav.Link href="#home" className="text-white mb-2">
+                    <Nav.Link href="/admin-dashboard" className="text-white mb-2">
                         Dashboard Home
                     </Nav.Link>
 
@@ -44,6 +44,7 @@ const SideBar = ({ onLogoutClick }) => {
                             aria-expanded={openFaculty}
                             className="text-white"
                             style={{ cursor: 'pointer' }}
+                            href="admin-dashboard/faculty-mgmt"
                         >
                             Faculty Management
                         </Nav.Link>
@@ -70,6 +71,7 @@ const SideBar = ({ onLogoutClick }) => {
                             aria-expanded={openStudent}
                             className="text-white"
                             style={{ cursor: 'pointer' }}
+                            href="/admin-dashboard/student-mgmt"
                         >
                             Student Management
                         </Nav.Link>
@@ -96,6 +98,7 @@ const SideBar = ({ onLogoutClick }) => {
                             aria-expanded={openCourse}
                             className="text-white"
                             style={{ cursor: 'pointer' }}
+                            href="/admin-dashboard/course-mgmt"
                         >
                             Course Management
                         </Nav.Link>
