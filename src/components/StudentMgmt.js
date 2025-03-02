@@ -49,7 +49,7 @@ useEffect(() => {
             {/* Cards Grid with Fade-In Animation */}
             <Row xs={1} sm={2} md={3} className="g-4">
               {[
-                ['Create Login', 'card-1', ''],
+                ['Create Login', 'card-1', '/admin-dashboard/student-mgmt/create-login'],
                 ['Reset Login', 'card-2', ''],
                 ['Student Details Approval', 'card-3', ''],
                 ['Grades Approval', 'card-4', ''],

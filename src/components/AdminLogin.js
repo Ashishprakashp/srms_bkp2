@@ -121,7 +121,7 @@ export default function AdminLogin() {
           <div className="text-white mb-3 mb-md-0">
             Copyright © 2025. All rights reserved.
           </div>
-          {/* Social links remain same */}
+          
         </div>
       </section>
     </>

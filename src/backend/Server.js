@@ -9,6 +9,7 @@ import session from 'express-session';
 import MongoStore from 'connect-mongo';
 import cookieParser from 'cookie-parser';
 import Faculty from './schemas/Faculty.js';
+import StudentAcc from './schemas/StudentAcc.js';
 
 dotenv.config();
 
@@ -380,6 +381,66 @@ app.post("/reset-faculty-password", async (req, res) => {
   } catch (error) {
       console.error("Error resetting password:", error);
       res.status(500).json({ message: "Failed to reset password." });
+  }
+});
+
+//Post student account
+app.post("/admin-dashboard/student-mgmt/create-login",async(req,res)=>{
+  try {
+    const students = req.body.users;
+    console.log("1");
+    
+    // Log the input data for debugging
+    console.log("Input Students:", students);
+
+    // Find existing faculties
+    let existingStudents;
+    try {
+      existingStudents = await StudentAcc.find({ studentId: { $in: students.map(s => s.studentId) } });
+      console.log("2");
+    } catch (findError) {
+      console.error("Error finding existing faculties:", findError);
+      throw findError; // Re-throw the error to be caught by the outer catch block
+    }
+
+    const existingStudentIds = existingStudents.map(s => s.studentId);
+    console.log("3");
+    
+    // Filter out new faculties
+    const newStudents = students.filter(s => !existingStudentIds.includes(s.studentId));
+    console.log("4");
+
+    // Hash passwords for new faculties
+    const hashedNewStudents = await Promise.all(
+      newStudents.map(async (student) => {
+        const hashedPassword = await hashPassword(student.password); // Hash the password
+        return {
+          ...student,
+          password: hashedPassword, // Replace plain password with hashed password
+        };
+      })
+    );
+
+    console.log("Hashed New Students:", hashedNewStudents);
+    
+    if (hashedNewStudents.length > 0) {
+      try {
+        await StudentAcc.insertMany(hashedNewStudents); // Insert new faculties with hashed passwords
+        console.log("5");
+      } catch (insertError) {
+        console.error("Error inserting new students:", insertError);
+        throw insertError; // Re-throw the error to be caught by the outer catch block
+      }
+    }
+
+    res.status(200).json({
+      message: hashedNewStudents.length > 0 ? "New Student details saved successfully" : "No new student added",
+      newStudents: hashedNewStudents,
+      existingStudents: existingStudents
+    });
+  } catch (error) {
+    console.error("Error in /admin-dashboard/faculty-mgmt/add:", error);
+    res.status(500).send("Error saving student details: " + error.message);
   }
 });
 
