@@ -111,7 +111,7 @@ const handleCourseClick = async (course) => {
           },
         }
       );
-
+  
       handleClose();
       setCourseName('');
       const fetchResponse = await axios.get('http://localhost:5000/fetch-courses-admin', {
@@ -344,7 +344,7 @@ const handleCourseClick = async (course) => {
             variant="outline-primary"
             className="d-block w-100 mb-2 text-start"
             onClick={() => {
-              navigate(`/admin-dashboard/course-mgmt/course-spec/${selectedCourse._id}/${regulation._id}`);
+              navigate(`/admin-dashboard/course-mgmt/course-spec/${selectedCourse._id}/${regulation.year}`);
             }}
           >
             {regulation.year}

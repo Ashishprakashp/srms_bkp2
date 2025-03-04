@@ -10,8 +10,18 @@ import CourseMgmt from './components/CourseMgmt.js';
 import CreateCourse from './components/CreateCourse.js';
 import CourseSpec from './components/CourseSpec.js';
 import StudentLoginCr from './components/StudentLoginCr.js';
+import StudentLogin from './components/StudentLogin.js';
+import StudentDashboard from './components/StudentDashboard.js';
+import StudentForm from './components/StudentForm.js';
 
 function App() {
+  const services3 = [
+    { title: "Student Form", description: "Student Form"},
+    { title: "Semester Form", description: "Semester Form" },
+    { title: "Semester Enrollment", description: "Semester Enrollment"},
+    { title: "Notifications", description: "Send important updates to students."}
+  ];
+
   return (
     <Router>
       <Routes>
@@ -20,9 +30,13 @@ function App() {
         <Route path='/admin-dashboard/faculty-mgmt' element={<FacultyMgmt/>}/>  
         <Route path='/admin-dashboard/student-mgmt' element={<StudentMgmt/>}/>  
         <Route path='/admin-dashboard/course-mgmt' element={<CourseMgmt/>}/>
-        <Route path="/admin-dashboard/course-mgmt/course-spec/:courseId/:regulationId" element={<CourseSpec />} />
+        <Route path="/admin-dashboard/course-mgmt/course-spec/:courseId/:regulationYear" element={<CourseSpec />} />
         <Route path='/admin-dashboard/course-mgmt/create-course' element={<CreateCourse/>}/>
         <Route path='/admin-dashboard/student-mgmt/create-login' element={<StudentLoginCr/>}/>
+
+        <Route path="/student-login" element={<StudentLogin/>}/>
+        <Route path="/student-dashboard" element={<StudentDashboard services={services3}/>}/>
+        <Route path="/student-form" element={<StudentForm/>}/>
       </Routes> 
     </Router>
   );

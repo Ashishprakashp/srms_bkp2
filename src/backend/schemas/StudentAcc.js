@@ -17,7 +17,15 @@ const StudentAccSchema = new mongoose.Schema({
     regulation:{
         type: String,
         required: [true, 'Regulation is required']
-      },  
+      }, 
+      from_year:{
+        type: String,
+        required: [true, 'Batch is required']
+      } ,
+      to_year:{
+        type: String,
+        required: [true, 'Batch is required']
+      } ,
     password: {
         type: String,
         required: [true, 'Password is required'],

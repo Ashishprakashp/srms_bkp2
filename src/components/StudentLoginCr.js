@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { nanoid } from "nanoid";
 import * as XLSX from "xlsx";
 import "bootstrap/dist/css/bootstrap.min.css";
@@ -8,7 +8,6 @@ import SideBar from "./SideBar.js";
 import { useNavigate } from "react-router-dom";
 import Folder from "./res/folder.png";
 import './AdminDashboard.css';
-import { useEffect } from "react";
 import axios from 'axios';
 
 export default function StudentLoginCr() {
@@ -21,11 +20,15 @@ export default function StudentLoginCr() {
         name: "",
         branch: "--Branch--",
         regulation: "--Regulation--",
+        from_year:"",
+        to_year:"",
         password: "",
         reset: 0,
     });
     const [showCreateLogin, setShowCreateLogin] = useState(false); // State to toggle UI
     const [showAutoLoginCreation, setShowAutoLoginCreation] = useState(false); // State to toggle Auto Login Creation UI
+    const [courses, setCourses] = useState([]); // State to store courses from the database
+    const [regulations, setRegulations] = useState([]); // State to store regulations for the selected branch
 
     // Authentication check
     useEffect(() => {
@@ -48,6 +51,32 @@ export default function StudentLoginCr() {
         verifyAuth();
     }, [navigate]);
 
+    // Fetch courses from the database on component mount
+    useEffect(() => {
+        const fetchCourses = async () => {
+            try {
+                const response = await axios.get('http://localhost:5000/fetch-courses');
+                setCourses(response.data); // Set the fetched courses
+            } catch (error) {
+                console.error("Error fetching courses:", error);
+            }
+        };
+
+        fetchCourses();
+    }, []);
+
+    // Fetch regulations for the selected branch
+    const fetchRegulations = async (course_name) => {
+        try {
+            console.log(course_name);
+            const response = await axios.get(`http://localhost:5000/fetch-regulations-admin/${course_name}`);
+            console.log(response.data);
+            setRegulations(response.data); // Set the fetched regulations
+        } catch (error) {
+            console.error("Error fetching regulations:", error);
+        }
+    };
+
     const getTimestamp = () => new Date().toISOString().replace(/[-T:]/g, "_").split(".")[0];
 
     const handleFileChange = (e) => {
@@ -56,13 +85,19 @@ export default function StudentLoginCr() {
     };
 
     const handleInputChange = (e) => {
-        setUser({ ...user, [e.target.name]: e.target.value });
+        const { name, value } = e.target;
+        setUser({ ...user, [name]: value });
+
+        // If the branch is changed, fetch regulations for the new branch
+        if (name === "branch" && value !== "--Branch--") {
+            fetchRegulations(value);
+        }
     };
 
     const handleDownloadTemplate = () => {
         // Sample data for the template
         const data = [
-            ["Student ID", "Name", "Branch", "Regulation"], // Example row
+            ["Student ID", "Name", "Branch", "Regulation","Start year","End year"], // Example row
         ];
 
         // Create a worksheet
@@ -77,8 +112,8 @@ export default function StudentLoginCr() {
     };
 
     const handleAddUser = () => {
-        const { studentId, name, branch ,regulation} = user;
-        if (!studentId || !name || branch === "--Branch--"||regulation === "--Regulation--") {
+        const { studentId, name, branch, regulation } = user;
+        if (!studentId || !name || branch === "--Branch--" || regulation === "--Regulation--") {
             alert("Please fill all fields correctly!");
             return;
         }
@@ -89,6 +124,8 @@ export default function StudentLoginCr() {
             name: "",
             branch: "--Branch--",
             regulation: "--Regulation--",
+            from_year:"",
+            to_year:"",
             password: "",
             reset: 0,
         });
@@ -119,7 +156,7 @@ export default function StudentLoginCr() {
             const jsonData = await readXLSFile(inputElement.files[0]);
 
             // Validate the Excel data
-            const requiredColumns = ["Student ID", "Name", "Branch","Regulation"];
+            const requiredColumns = ["Student ID", "Name", "Branch", "Regulation","Start year","End year"];
             const hasRequiredColumns = requiredColumns.every((column) =>
                 jsonData.some((row) => column in row)
             );
@@ -134,6 +171,8 @@ export default function StudentLoginCr() {
                 name: item["Name"] || "",
                 branch: item["Branch"] || "--Branch--",
                 regulation: item["Regulation"] || "--Regulation--",
+                from_year: item["Start year"] ||"",
+                to_year: item["End year"] ||"",
                 password: nanoid(12), // Generate a random password
                 reset: 0,
             }));
@@ -159,7 +198,7 @@ export default function StudentLoginCr() {
         try {
             // Convert data to Excel sheet
             const ws = XLSX.utils.json_to_sheet(
-                data.map(({ studentId, name,branch,regulation, password }) => ({
+                data.map(({ studentId, name, branch, regulation, password }) => ({
                     "User ID": studentId,
                     Name: name,
                     Branch: branch,
@@ -256,17 +295,40 @@ export default function StudentLoginCr() {
                                             <Col>
                                                 <Form.Select name="branch" value={user.branch} onChange={handleInputChange}>
                                                     <option>--Branch--</option>
-                                                    <option>Computer Science</option>
-                                                    <option>Electrical Engineering</option>
-                                                    <option>Mechanical Engineering</option>
+                                                    {courses.map((course) => (
+                                                        <option key={course._id} value={course.course_name}>
+                                                            {course.course_name}
+                                                        </option>
+                                                    ))}
                                                 </Form.Select>
                                             </Col>
                                             <Col>
-                                                <Form.Select name="regulation" value={user.regulation} onChange={handleInputChange}>
-                                                    <option>--Regulation--</option>
-                                                    <option>2019</option>
-                                                    <option>2023</option>
-                                                </Form.Select>
+                                            <Form.Select name="regulation" value={user.regulation} onChange={handleInputChange}>
+                                                <option>--Regulation--</option>
+                                                {regulations.map((regulation, index) => (
+                                                    <option key={index} value={regulation}>
+                                                        {regulation}
+                                                    </option>
+                                                ))}
+                                            </Form.Select>
+                                            </Col>
+                                            <Col>
+                                                <Form.Control
+                                                    type="text"
+                                                    name="from_year"
+                                                    placeholder="Start Year"
+                                                    value={user.from_year}
+                                                    onChange={handleInputChange}
+                                                />
+                                            </Col>
+                                            <Col>
+                                                <Form.Control
+                                                    type="text"
+                                                    name="to_year"
+                                                    placeholder="End Year"
+                                                    value={user.to_year}
+                                                    onChange={handleInputChange}
+                                                />
                                             </Col>
                                         </Row>
                                         <Row className="mb-3">
@@ -421,6 +483,8 @@ const StudentTable = ({ users, removeUser }) => (
                             <th>Name</th>
                             <th>Branch</th>
                             <th>Regulation</th>
+                            <th>From Year</th>
+                            <th>To Year</th>
                             {removeUser && <th>Action</th>}
                         </tr>
                     </thead>
@@ -431,6 +495,8 @@ const StudentTable = ({ users, removeUser }) => (
                                 <td>{user.name}</td>
                                 <td>{user.branch}</td>
                                 <td>{user.regulation}</td>
+                                <td>{user.from_year}</td>
+                                <td>{user.to_year}</td>
                                 {removeUser && (
                                     <td>
                                         <Button variant="danger" onClick={() => removeUser(index)}>

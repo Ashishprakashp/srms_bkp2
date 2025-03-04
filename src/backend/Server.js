@@ -114,9 +114,58 @@ app.post('/logout', (req, res) => {
   });
 });
 
+// app.post('/create-course', isAuthenticated, async (req, res) => {
+//   try {
+  
+//     // Validate request body
+//     if (!req.body.course_name || typeof req.body.course_name !== 'string') {
+//       return res.status(400).json({ message: 'Invalid course name' });
+//     }
+
+//     // Create course with explicit field mapping
+//     const newCourse = new Course({
+//       course_name: req.body.course_name,
+//       semester_count: req.body.semester_count || 0,
+//       semesters: [],
+//       creation_time: new Date(),
+//       user_created: req.session.user.username
+//     });
+    
+//     // Save and return response
+//     const savedCourse = await newCourse.save();
+//     res.status(201).json({
+//       message: "Course created successfully",
+//       course: savedCourse
+//     });
+    
+//   } catch (error) {
+//     console.error("Creation error:", error);
+    
+//     // Handle duplicate key error
+//     if (error.code === 11000) {
+//       return res.status(409).json({
+//         message: "Course name already exists",
+//         field: "course_name"
+//       });
+//     }
+
+//     // Handle validation errors
+//     if (error.name === 'ValidationError') {
+//       return res.status(400).json({
+//         message: "Validation failed",
+//         errors: Object.values(error.errors).map(e => e.message)
+//       });
+//     }
+
+//     res.status(500).json({
+//       message: "Course creation failed",
+//       error: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
+//     });
+//   }
+// });
+
 app.post('/create-course', isAuthenticated, async (req, res) => {
   try {
-  
     // Validate request body
     if (!req.body.course_name || typeof req.body.course_name !== 'string') {
       return res.status(400).json({ message: 'Invalid course name' });
@@ -125,27 +174,25 @@ app.post('/create-course', isAuthenticated, async (req, res) => {
     // Create course with explicit field mapping
     const newCourse = new Course({
       course_name: req.body.course_name,
-      semester_count: req.body.semester_count || 0,
-      semesters: [],
+      regulations: [], // Initialize with an empty array of regulations
       creation_time: new Date(),
-      user_created: req.session.user.username
+      user_created: req.session.user.username, // Assuming user is authenticated
     });
-    
+
     // Save and return response
     const savedCourse = await newCourse.save();
     res.status(201).json({
       message: "Course created successfully",
-      course: savedCourse
+      course: savedCourse,
     });
-    
   } catch (error) {
     console.error("Creation error:", error);
-    
+
     // Handle duplicate key error
     if (error.code === 11000) {
       return res.status(409).json({
         message: "Course name already exists",
-        field: "course_name"
+        field: "course_name",
       });
     }
 
@@ -153,16 +200,20 @@ app.post('/create-course', isAuthenticated, async (req, res) => {
     if (error.name === 'ValidationError') {
       return res.status(400).json({
         message: "Validation failed",
-        errors: Object.values(error.errors).map(e => e.message)
+        errors: Object.values(error.errors).map((e) => e.message),
       });
     }
 
     res.status(500).json({
       message: "Course creation failed",
-      error: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
+      error:
+        process.env.NODE_ENV === 'development'
+          ? error.message
+          : 'Internal server error',
     });
   }
 });
+
 
 //Delete course
 // Example backend route (Express.js)
@@ -212,7 +263,7 @@ app.post('/delete-course', isAuthenticated, async (req, res) => {
   }
 });
 
-//Fetch the courses for admin
+// the courses for admin
 app.get('/fetch-courses-admin',async(req,res)=>{
   try{
     const courses = await Course.find({});
@@ -441,6 +492,272 @@ app.post("/admin-dashboard/student-mgmt/create-login",async(req,res)=>{
   } catch (error) {
     console.error("Error in /admin-dashboard/faculty-mgmt/add:", error);
     res.status(500).send("Error saving student details: " + error.message);
+  }
+});
+
+app.post("/add-semester",async(req,res)=>{
+
+});
+
+app.post("/add-semester/:_id/:regulationYear", async (req, res) => {
+  const { _id, regulationYear } = req.params; // Use _id for courseId
+  const { sem_no } = req.body; // sem_no is required to create a new semester
+
+  try {
+    // Find the course by _id
+    const course = await Course.findById(_id);
+    if (!course) {
+      return res.status(404).json({ error: "Course not found" });
+    }
+
+    // Find the regulation by regulationId (assuming regulationId is the _id of the regulation)
+    const regulation = course.regulations.find((reg) => reg.year === regulationYear);
+    if (!regulation) {
+      return res.status(404).json({ error: "Regulation not found" });
+    }
+
+    // Check if the semester already exists
+    const semesterExists = regulation.semesters.some((sem) => sem.sem_no === sem_no);
+    if (semesterExists) {
+      return res.status(400).json({ error: "Semester already exists" });
+    }
+
+    // Create a new semester
+    const newSemester = {
+      sem_no,
+      subjects: [], // Initialize with an empty array of subjects
+    };
+
+    // Add the semester to the regulation's semesters array
+    regulation.semesters.push(newSemester);
+    regulation.semester_count += 1; // Increment the semester count for this regulation
+
+    // Save the updated course
+    await course.save();
+
+    res.status(200).json(newSemester);
+  } catch (error) {
+    console.error("Error:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+app.post("/add-subject/:courseId/:regulationYear", async (req, res) => {
+  const { courseId, regulationYear } = req.params; // courseId is the _id of the course, regulationYear is the year (e.g., "2023")
+  const { sem_no, subject_code, subject_name, credits, subject_type } = req.body; // Subject details
+
+  try {
+    // Find the course by _id
+    const course = await Course.findById(courseId);
+    if (!course) {
+      return res.status(404).json({ error: "Course not found" });
+    }
+
+    // Find the regulation by year
+    const regulation = course.regulations.find((reg) => reg.year === regulationYear);
+    if (!regulation) {
+      return res.status(404).json({ error: "Regulation not found" });
+    }
+
+    // Find the semester by sem_no
+    const semester = regulation.semesters.find((sem) => sem.sem_no === sem_no);
+    if (!semester) {
+      return res.status(404).json({ error: "Semester not found" });
+    }
+
+    // Create a new subject
+    const newSubject = {
+      subject_code,
+      subject_name,
+      credits,
+      subject_type,
+    };
+
+    // Add the subject to the semester's subjects array
+    semester.subjects.push(newSubject);
+
+    // Save the updated course
+    await course.save();
+
+    res.status(200).json(newSubject); // Return the newly added subject
+  } catch (error) {
+    console.error("Error adding subject:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+app.delete("/remove-subject/:subjectId", async (req, res) => {
+  const { subjectId } = req.params; // subjectId is the _id of the subject to be removed
+
+  // Validate subjectId
+  if (!mongoose.isValidObjectId(subjectId)) {
+    return res.status(400).json({ error: "Invalid subject ID" });
+  }
+
+  try {
+    // Find the course that contains the subject
+    const course = await Course.findOne({
+      "regulations.semesters.subjects._id": subjectId,
+    });
+    if (!course) {
+      return res.status(404).json({ error: "Course not found" });
+    }
+
+    // Find the regulation, semester, and subject
+    let subjectRemoved = false;
+    for (const regulation of course.regulations) {
+      for (const semester of regulation.semesters) {
+        const subjectIndex = semester.subjects.findIndex(
+          (subject) => subject._id.toString() === subjectId
+        );
+        if (subjectIndex !== -1) {
+          // Remove the subject from the semester's subjects array
+          semester.subjects.splice(subjectIndex, 1);
+          subjectRemoved = true;
+          break;
+        }
+      }
+      if (subjectRemoved) break;
+    }
+
+    if (!subjectRemoved) {
+      return res.status(404).json({ error: "Subject not found" });
+    }
+
+    // Save the updated course
+    await course.save();
+
+    res.status(200).json({ message: "Subject removed successfully" });
+  } catch (error) {
+    console.error("Error removing subject:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+app.get("/fetch-semesters/:courseId/:regulationYear", async (req, res) => {
+  const { courseId, regulationYear } = req.params; // courseId is the _id of the course, regulationYear is the year (e.g., "2023")
+
+  try {
+    // Find the course by _id
+    const course = await Course.findById(courseId);
+    if (!course) {
+      return res.status(404).json({ error: "Course not found" });
+    }
+
+    // Find the regulation by year
+    const regulation = course.regulations.find((reg) => reg.year === regulationYear);
+    if (!regulation) {
+      return res.status(404).json({ error: "Regulation not found" });
+    }
+
+    // Return the semesters for the regulation
+    res.status(200).json(regulation.semesters);
+  } catch (error) {
+    console.error("Error fetching semesters:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+app.put("/update-subject/:subjectId", async (req, res) => {
+  const { subjectId } = req.params; // subjectId is the _id of the subject to be updated
+  const updatedSubject = req.body; // Updated subject details
+
+  try {
+    // Find the course that contains the subject
+    const course = await Course.findOne({
+      "regulations.semesters.subjects._id": subjectId,
+    });
+    if (!course) {
+      return res.status(404).json({ error: "Course not found" });
+    }
+
+    // Find the regulation, semester, and subject
+    let subjectUpdated = false;
+    for (const regulation of course.regulations) {
+      for (const semester of regulation.semesters) {
+        const subjectIndex = semester.subjects.findIndex(
+          (subject) => subject._id.toString() === subjectId
+        );
+        if (subjectIndex !== -1) {
+          // Update the subject with the new details
+          semester.subjects[subjectIndex] = {
+            ...semester.subjects[subjectIndex],
+            ...updatedSubject,
+          };
+          subjectUpdated = true;
+          break;
+        }
+      }
+      if (subjectUpdated) break;
+    }
+
+    if (!subjectUpdated) {
+      return res.status(404).json({ error: "Subject not found" });
+    }
+
+    // Save the updated course
+    await course.save();
+
+    res.status(200).json(updatedSubject); // Return the updated subject
+  } catch (error) {
+    console.error("Error updating subject:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+app.get("/fetch-courses", async (req, res) => {
+  try {
+    const courses = await Course.find({}, { course_name: 1 });
+    res.status(200).json(courses);
+  } catch (error) {
+    console.error("Error fetching courses:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+app.get("/fetch-regulations-admin/:course_name", async (req, res) => {
+  const { course_name } = req.params;
+  console.log(course_name);
+  try {
+    // Find the course by course_name (not _id)
+    const course = await Course.findOne({course_name:course_name});
+    console.log("1");
+    if (!course) {
+      return res.status(404).json({ error: "Course not found" });
+    }
+
+    // Extract regulations from the course document
+    const regulations = course.regulations.map(regulation => regulation.year);
+    
+    res.status(200).json(regulations);
+  } catch (error) {
+    console.error("Error fetching regulations:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+// Student Login Route
+app.post('/studentlogin', async (req, res) => {
+  try {
+    console.log(req.body);
+    const { studentId, password } = req.body;
+    if (!studentId || !password) return res.status(400).json({ message: 'Missing credentials' });
+
+    const student = await StudentAcc.findOne({ studentId });
+    if (!student) return res.status(401).json({ message: 'Invalid credentials' });
+
+    const isPasswordValid = await bcrypt.compare(password, student.password);
+    if (!isPasswordValid) return res.status(401).json({ message: 'Invalid credentials' });
+
+    req.session.user = { id: student._id, studentId: student.studentId };
+
+    req.session.save(err => {
+      if (err) return res.status(500).json({ message: 'Session save failed' });
+      res.status(200).json({ message: 'Login successful', student: { studentId: student.studentId } });
+    });
+
+  } catch (error) {
+    res.status(500).json({ message: 'Internal server error' });
   }
 });
 

@@ -6,10 +6,9 @@ import TitleBar from "./TitleBar.js";
 import SideBar from "./SideBar.js";
 
 const CourseSpec = () => {
-  const { courseId, regulationId } = useParams();
+  const { courseId, regulationYear } = useParams();
   const navigate = useNavigate();
   const [semesters, setSemesters] = useState([]);
-  const [courses, setCourses] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showAddSubjectModal, setShowAddSubjectModal] = useState(false);
   const [newSubject, setNewSubject] = useState({
@@ -21,44 +20,40 @@ const CourseSpec = () => {
   });
   const [editingCourse, setEditingCourse] = useState(null);
 
-  // Fetch semesters and courses for the selected regulation
+  // Fetch semesters and their subjects for the selected regulation
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const semestersResponse = await axios.get(
-          `http://localhost:5000/fetch-semesters/${courseId}/${regulationId}`
+        const response = await axios.get(
+          `http://localhost:5000/fetch-semesters/${courseId}/${regulationYear}`
         );
-        setSemesters(semestersResponse.data);
-
-        const coursesResponse = await axios.get(
-          `http://localhost:5000/fetch-courses/${courseId}/${regulationId}`
-        );
-        setCourses(coursesResponse.data);
+        setSemesters(response.data); // Set the fetched semesters and subjects
       } catch (error) {
         console.error("Error fetching data:", error);
       } finally {
         setLoading(false);
       }
     };
-
+  
     fetchData();
-  }, [courseId, regulationId]);
+  }, [courseId, regulationYear]);
 
-  // Handle adding a new semester automatically
+  // Handle adding a new semester
   const handleAddSemester = async () => {
     try {
       const newSemester = {
-        code: `SEM-${semesters.length + 1}`, // Auto-generate a semester code
-        sem_no: semesters.length + 1, // Auto-increment semester number
+        code: `SEM-${semesters.length + 1}`,
+        sem_no: semesters.length + 1,
+        subjects: [], // Initialize with an empty array of subjects
       };
-
+      console.log(courseId+" "+regulationYear);
       const response = await axios.post(
-        `http://localhost:5000/add-semester/${courseId}/${regulationId}`,
+        `http://localhost:5000/add-semester/${courseId}/${regulationYear}`,
         newSemester
       );
 
       if (response.status === 200) {
-        setSemesters([...semesters, response.data]); // Add the new semester to the list
+        setSemesters([...semesters, response.data]);
       }
     } catch (error) {
       console.error("Error adding semester:", error);
@@ -70,12 +65,18 @@ const CourseSpec = () => {
     e.preventDefault();
     try {
       const response = await axios.post(
-        `http://localhost:5000/add-subject/${courseId}/${regulationId}`,
+        `http://localhost:5000/add-subject/${courseId}/${regulationYear}`,
         newSubject
       );
-
+  
       if (response.status === 200) {
-        setCourses([...courses, response.data]); // Add the new subject to the list
+        // Update the semester with the new subject
+        const updatedSemesters = semesters.map((semester) =>
+          semester.sem_no === newSubject.sem_no
+            ? { ...semester, subjects: [...semester.subjects, response.data] }
+            : semester
+        );
+        setSemesters(updatedSemesters);
         setShowAddSubjectModal(false); // Close the modal
         setNewSubject({
           subject_code: "",
@@ -90,45 +91,54 @@ const CourseSpec = () => {
     }
   };
 
-  // Handle editing a course
-  const handleEditCourse = (course) => {
-    setEditingCourse(course); // Set the course being edited
+  // Handle editing a subject
+  const handleEditCourse = (subject) => {
+    setEditingCourse(subject); // Set the subject being edited
   };
 
-  // Handle updating a course
+  // Handle updating a subject
   const handleUpdateCourse = async (e) => {
     e.preventDefault();
     try {
       const response = await axios.put(
-        `http://localhost:5000/update-course/${editingCourse._id}`,
+        `http://localhost:5000/update-subject/${editingCourse._id}`,
         editingCourse
       );
-
+  
       if (response.status === 200) {
-        const updatedCourses = courses.map((course) =>
-          course._id === editingCourse._id ? editingCourse : course
-        );
-        setCourses(updatedCourses); // Update the course list
+        // Update the subject in the semester
+        const updatedSemesters = semesters.map((semester) => ({
+          ...semester,
+          subjects: semester.subjects.map((subject) =>
+            subject._id === editingCourse._id ? editingCourse : subject
+          ),
+        }));
+        setSemesters(updatedSemesters);
         setEditingCourse(null); // Close the edit modal
       }
     } catch (error) {
-      console.error("Error updating course:", error);
+      console.error("Error updating subject:", error);
     }
   };
 
-  // Handle removing a course
-  const handleRemoveCourse = async (courseId) => {
+  // Handle removing a subject
+  const handleRemoveCourse = async (subjectId) => {
     try {
+      console.log("Removing subject with ID:", subjectId); // Debugging line
       const response = await axios.delete(
-        `http://localhost:5000/remove-course/${courseId}`
+        `http://localhost:5000/remove-subject/${subjectId}`
       );
-
+  
       if (response.status === 200) {
-        const updatedCourses = courses.filter((course) => course._id !== courseId);
-        setCourses(updatedCourses); // Remove the course from the list
+        // Remove the subject from the semester
+        const updatedSemesters = semesters.map((semester) => ({
+          ...semester,
+          subjects: semester.subjects.filter((subject) => subject._id !== subjectId),
+        }));
+        setSemesters(updatedSemesters);
       }
     } catch (error) {
-      console.error("Error removing course:", error);
+      console.error("Error removing subject:", error);
     }
   };
 
@@ -142,7 +152,7 @@ const CourseSpec = () => {
       <div className="d-flex vh-100">
         <SideBar />
         <div className="p-4 w-100">
-          <h1>Manage Courses for Regulation {regulationId}</h1>
+          <h1>Manage Courses for Regulation {regulationYear}</h1>
           <Button onClick={() => navigate(-1)} className="mb-4">
             Back
           </Button>
@@ -175,33 +185,31 @@ const CourseSpec = () => {
                       </tr>
                     </thead>
                     <tbody>
-                      {courses
-                        .filter((c) => c.sem_no === semester.sem_no)
-                        .map((course) => (
-                          <tr key={course._id}>
-                            <td>{course.subject_code}</td>
-                            <td>{course.subject_name}</td>
-                            <td>{course.credits}</td>
-                            <td>{course.subject_type}</td>
-                            <td>
-                              <Button
-                                variant="warning"
-                                size="sm"
-                                onClick={() => handleEditCourse(course)}
-                                className="me-2"
-                              >
-                                Edit
-                              </Button>
-                              <Button
-                                variant="danger"
-                                size="sm"
-                                onClick={() => handleRemoveCourse(course._id)}
-                              >
-                                Remove
-                              </Button>
-                            </td>
-                          </tr>
-                        ))}
+                      {semester.subjects.map((subject) => (
+                        <tr key={subject._id}>
+                          <td>{subject.subject_code}</td>
+                          <td>{subject.subject_name}</td>
+                          <td>{subject.credits}</td>
+                          <td>{subject.subject_type}</td>
+                          <td>
+                            <Button
+                              variant="warning"
+                              size="sm"
+                              onClick={() => handleEditCourse(subject)}
+                              className="me-2"
+                            >
+                              Edit
+                            </Button>
+                            <Button
+                              variant="danger"
+                              size="sm"
+                              onClick={() => handleRemoveCourse(subject._id)}
+                            >
+                              Remove
+                            </Button>
+                          </td>
+                        </tr>
+                      ))}
                     </tbody>
                   </Table>
                 </Card.Body>
@@ -274,11 +282,11 @@ const CourseSpec = () => {
         </Modal.Body>
       </Modal>
 
-      {/* Edit Course Modal */}
+      {/* Edit Subject Modal */}
       {editingCourse && (
         <Modal show={!!editingCourse} onHide={() => setEditingCourse(null)}>
           <Modal.Header closeButton>
-            <Modal.Title>Edit Course</Modal.Title>
+            <Modal.Title>Edit Subject</Modal.Title>
           </Modal.Header>
           <Modal.Body>
             <Form onSubmit={handleUpdateCourse}>
@@ -330,7 +338,7 @@ const CourseSpec = () => {
                 </Form.Select>
               </Form.Group>
               <Button variant="primary" type="submit">
-                Update Course
+                Update Subject
               </Button>
             </Form>
           </Modal.Body>

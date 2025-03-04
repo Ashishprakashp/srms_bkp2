@@ -1,0 +1,53 @@
+/* Slide-in animation for the background */
+@keyframes slideIn {
+    from {
+      opacity: 0;
+      transform: translateX(-20px);
+    }
+    to {
+      opacity: 1;
+      transform: translateX(0);
+    }
+  }
+  
+  /* Slide-in animation for the form */
+  @keyframes slideInUp {
+    from {
+      opacity: 0;
+      transform: translateY(20px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+  
+  /* Apply animation to the background */
+  .slide-in-background {
+    animation: slideIn 1s ease-out;
+  }
+  
+  /* Apply animation to the form */
+  .slide-in-form {
+    animation: slideInUp 1s ease-out;
+  }
+  
+  /* Custom hover effect for the login button */
+  .btn-primary:hover {
+    background-color: #ff4a3d !important; /* Darker coral on hover */
+    transform: scale(1.05);
+    transition: all 0.3s ease;
+  }
+  
+  /* Custom styles for the form inputs */
+  .form-control {
+    border-radius: 10px;
+    border: 1px solid #ddd;
+    padding: 0.75rem;
+    font-size: 1rem;
+  }
+  
+  .form-control:focus {
+    border-color: #ff6f61; /* Coral color */
+    box-shadow: 0 0 5px rgba(255, 111, 97, 0.5);
+  }
