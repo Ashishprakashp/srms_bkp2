@@ -5,16 +5,16 @@ import Page2 from './Page2.js';
 import Page3 from './Page3.js';
 import Page4 from './Page4.js';
 import Page5 from './Page5.js';
-
-// import AdminTitleBar from './AdminTitleBar';
 import { Container, Row, Col, Button, Nav } from 'react-bootstrap';
 import TitleBar from './TitleBar.js';
 import SideBar from './SideBar.js';
-// import './styles/StudentForm.css'; // Keep this for any custom styles not covered by Bootstrap
+import StudentSideBar from './StudentSideBar.js';
 
 const StudentForm = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const branch = sessionStorage.getItem('branch');
+  const isBtech = branch === 'Btech';
+  const totalPages = isBtech ? 4 : 5;
 
   const [formData, setFormData] = useState({
     personalInformation: {
@@ -91,36 +91,44 @@ const StudentForm = () => {
     }
   };
 
+  const handleNext = () => {
+    if (currentPage < totalPages) {
+      setCurrentPage(currentPage + 1);
+    }
+  };
+
+  const handleBack = () => {
+    if (currentPage > 1) {
+      setCurrentPage(currentPage - 1);
+    }
+  };
+
   const renderPage = () => {
+    if (isBtech && currentPage === 4) {
+      return <Page5 formData={formData} setFormData={setFormData} />;
+    }
+
     switch (currentPage) {
-      case 1:
-        return <Page1 formData={formData} setFormData={setFormData} />;
-      case 2:
-        return <Page2 formData={formData} setFormData={setFormData} />;
-      case 3:
-        return <Page3 formData={formData} setFormData={setFormData} />;
-        case 4:
-          return <Page4 formData={formData} setFormData={setFormData} />;
-          case 5:
-            return <Page5 formData={formData} setFormData={setFormData} />;
-          
-      default:
-        return <div>Invalid Page!</div>;
+      case 1: return <Page1 formData={formData} setFormData={setFormData} />;
+      case 2: return <Page2 formData={formData} setFormData={setFormData} />;
+      case 3: return <Page3 formData={formData} setFormData={setFormData} />;
+      case 4: return isBtech ? <Page5 formData={formData} setFormData={setFormData} /> : <Page4 formData={formData} setFormData={setFormData} />;
+      case 5: return <Page5 formData={formData} setFormData={setFormData} />;
+      default: return <div>Invalid Page!</div>;
     }
   };
 
   return (
     <div>
       <TitleBar />
-      <div className="d-flex flex-grow-1" > {/* Adjust for titlebar height */}
-        <SideBar />
-        
+      <div className="d-flex flex-grow-1">
+        <StudentSideBar/>
         <Container fluid className="p-4" style={{ overflowY: 'auto', height: 'calc(100vh - 56px)' }}>
           {/* Page Navigation */}
           <Row className="mb-4">
             <Col>
               <Nav className="justify-content-center flex-wrap">
-                {[1, 2, 3, 4, 5].map((page) => (
+                {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
                   <Nav.Item key={page} className="mb-2">
                     <Button
                       variant={currentPage === page ? 'primary' : 'outline-primary'}
@@ -139,17 +147,28 @@ const StudentForm = () => {
           <Row className="justify-content-center">
             <Col xl={10} lg={12} md={12}>
               {renderPage()}
-              
-              {/* Submit Button - Show only on last page */}
-              {currentPage === 5 && (
-                <Row className="justify-content-center mt-4">
-                  <Col className="text-center">
-                    <Button variant="success" size="lg" onClick={handleSubmit}>
+
+              {/* Navigation Buttons */}
+              <Row className="justify-content-between mt-4">
+                <Col className="text-start">
+                  {currentPage > 1 && (
+                    <Button variant="secondary" onClick={handleBack}>
+                      Back
+                    </Button>
+                  )}
+                </Col>
+                <Col className="text-end">
+                  {currentPage < totalPages ? (
+                    <Button variant="primary" onClick={handleNext}>
+                      Next
+                    </Button>
+                  ) : (
+                    <Button variant="success" onClick={handleSubmit}>
                       Submit Application
                     </Button>
-                  </Col>
-                </Row>
-              )}
+                  )}
+                </Col>
+              </Row>
             </Col>
           </Row>
         </Container>
@@ -157,4 +176,5 @@ const StudentForm = () => {
     </div>
   );
 };
+
 export default StudentForm;

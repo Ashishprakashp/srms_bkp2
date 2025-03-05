@@ -5,6 +5,7 @@ import './AdminDashboard.css';
 import SideBar from './SideBar.js';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
+import StudentSideBar from './StudentSideBar.js';
 // import ResetCredentials from './components/ResetCredentials';
 
 const StudentDashboard = ({ services }) => {
@@ -38,10 +39,10 @@ const StudentDashboard = ({ services }) => {
         if (response.data.authenticated) {
           fetchAccountStatus(); // Fetch account status if authenticated
         } else {
-          navigate('/', { replace: true }); // Redirect to login if not authenticated
+          navigate('/student-login', { replace: true }); // Redirect to login if not authenticated
         }
       } catch (error) {
-        navigate('/', { replace: true }); // Redirect to login on error
+        navigate('/student-login', { replace: true }); // Redirect to login on error
       } finally {
         setLoading(false);
       }
@@ -57,7 +58,7 @@ const StudentDashboard = ({ services }) => {
         withCredentials: true,
       });
     } finally {
-      navigate('/', { replace: true }); // Redirect to login
+      navigate('/student-login', { replace: true }); // Redirect to login
       window.location.reload(); // Optional: Refresh the page to clear state
     }
   };
@@ -89,7 +90,7 @@ const StudentDashboard = ({ services }) => {
     <>
       <TitleBar />
       <div className="d-flex vh-100">
-        <SideBar onLogoutClick={() => setShowLogoutModal(true)} />
+        <StudentSideBar onLogoutClick={() => setShowLogoutModal(true)} />
 
         <div className="main-content-ad-dboard flex-grow-1">
           <div className="p-4">

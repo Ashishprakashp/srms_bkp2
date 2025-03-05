@@ -30,17 +30,16 @@ export default function StudentLogin() {
     e.preventDefault();
 
     try {
-        console.log("1");
       const response = await axios.post(
         'http://localhost:5000/studentlogin',
         { studentId, password },
         { withCredentials: true }
       );
-      console.log("2");
+
       console.log('Login response:', response.data); // Debugging line
 
       if (response.data.message === 'Login successful') {
-        // Optional: Store student ID in sessionStorage for UI purposes
+        // Store student ID in sessionStorage for UI purposes
         sessionStorage.setItem('student', studentId);
         navigate('/student-dashboard', { replace: true }); // Redirect to dashboard
       }
@@ -125,11 +124,7 @@ export default function StudentLogin() {
                   </Button>
                 </div>
 
-                <div className="text-center mt-3">
-                  <p className="text-muted">
-                    Don't have an account? <a href="/register" className="text-primary">Register here</a>
-                  </p>
-                </div>
+                
               </Form>
             </Col>
           </Row>

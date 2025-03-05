@@ -761,5 +761,30 @@ app.post('/studentlogin', async (req, res) => {
   }
 });
 
+app.get('/student/:studentId', async (req, res) => {
+  const { studentId } = req.params;
+
+  try {
+    // Fetch student details from the database
+    const student = await StudentAcc.findOne({ studentId });
+    if (!student) {
+      return res.status(404).json({ message: 'Student not found' });
+    }
+
+    // Return the required fields
+    res.json({
+      studentId: student.studentId,
+      branch: student.branch,
+      regulation: student.regulation,
+      from_year: student.from_year,
+      to_year: student.to_year,
+    });
+  } catch (error) {
+    console.error('Error fetching student details:', error);
+    res.status(500).json({ message: 'Internal server error' });
+  }
+});
+
+
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => console.log(`Server running on http://localhost:${PORT}`));

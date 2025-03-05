@@ -18,199 +18,166 @@ const Page3 = ({ formData, setFormData }) => {
   };
 
   const renderTenthDetails = () => (
-    <Row className="mb-3">
-      <Col md={6}>
-        <Form.Group>
-          <Form.Label>10th School Name:</Form.Label>
-          <Form.Control
-            type="text"
-            value={formData.education.xSchool}
-            onChange={(e) => handleChange('education', 'xSchool', e.target.value)}
-          />
-        </Form.Group>
-      </Col>
-      <Col md={6}>
-        <Form.Group>
-          <Form.Label>10th Board:</Form.Label>
-          <Form.Control
-            type="text"
-            value={formData.education.xBoard}
-            onChange={(e) => handleChange('education', 'xBoard', e.target.value)}
-          />
-        </Form.Group>
-      </Col>
-      <Col md={6}>
-        <Form.Group>
-          <Form.Label>10th Percentage:</Form.Label>
-          <Form.Control
-            type="number"
-            min="0"
-            max="100"
-            step="0.01"
-            value={formData.education.xPercentage}
-            onChange={(e) => handleChange('education', 'xPercentage', e.target.value)}
-          />
-        </Form.Group>
-      </Col>
-      <Col md={6}>
-        <Form.Group>
-          <Form.Label>10th Year of Passing:</Form.Label>
-          <Form.Control
-            type="number"
-            min="1900"
-            max="2100"
-            value={formData.education.xYear}
-            onChange={(e) => handleChange('education', 'xYear', e.target.value)}
-          />
-        </Form.Group>
-      </Col>
-    </Row>
+    <fieldset className="border p-3 mb-4">
+      <legend className="w-auto">Class X Details</legend>
+      <Row>
+        <Col md={6}>
+          <Form.Group>
+            <Form.Label>School Name:</Form.Label>
+            <Form.Control
+              type="text"
+              value={formData.education.xSchool}
+              onChange={(e) => handleChange('education', 'xSchool', e.target.value)}
+            />
+          </Form.Group>
+        </Col>
+        <Col md={6}>
+          <Form.Group>
+            <Form.Label>Board:</Form.Label>
+            <Form.Control
+              type="text"
+              value={formData.education.xBoard}
+              onChange={(e) => handleChange('education', 'xBoard', e.target.value)}
+            />
+          </Form.Group>
+        </Col>
+        <Col md={6}>
+          <Form.Group>
+            <Form.Label>Percentage:</Form.Label>
+            <Form.Control
+              type="number"
+              min="0"
+              max="100"
+              step="0.01"
+              value={formData.education.xPercentage}
+              onChange={(e) => handleChange('education', 'xPercentage', e.target.value)}
+            />
+          </Form.Group>
+        </Col>
+        <Col md={6}>
+          <Form.Group>
+            <Form.Label>Year of Passing:</Form.Label>
+            <Form.Control
+              type="number"
+              min="1900"
+              max="2100"
+              value={formData.education.xYear}
+              onChange={(e) => handleChange('education', 'xYear', e.target.value)}
+            />
+          </Form.Group>
+        </Col>
+      </Row>
+    </fieldset>
   );
 
   const renderTwelfthDetails = () => (
-    <Row className="mb-3">
-      <Col md={6}>
-        <Form.Group>
-          <Form.Label>12th School Name:</Form.Label>
-          <Form.Control
-            type="text"
-            value={formData.education.xiiSchool}
-            onChange={(e) => handleChange('education', 'xiiSchool', e.target.value)}
-          />
-        </Form.Group>
-      </Col>
-      <Col md={6}>
-        <Form.Group>
-          <Form.Label>12th Board:</Form.Label>
-          <Form.Control
-            type="text"
-            value={formData.education.xiiBoard}
-            onChange={(e) => handleChange('education', 'xiiBoard', e.target.value)}
-          />
-        </Form.Group>
-      </Col>
-      <Col md={6}>
-        <Form.Group>
-          <Form.Label>12th Percentage:</Form.Label>
-          <Form.Control
-            type="number"
-            min="0"
-            max="100"
-            step="0.01"
-            value={formData.education.xiiPercentage}
-            onChange={(e) => handleChange('education', 'xiiPercentage', e.target.value)}
-          />
-        </Form.Group>
-      </Col>
-      <Col md={6}>
-        <Form.Group>
-          <Form.Label>12th Year of Passing:</Form.Label>
-          <Form.Control
-            type="number"
-            min="1900"
-            max="2100"
-            value={formData.education.xiiYear}
-            onChange={(e) => handleChange('education', 'xiiYear', e.target.value)}
-          />
-        </Form.Group>
-      </Col>
-    </Row>
+    <fieldset className="border p-3 mb-4">
+      <legend className="w-auto">Class XII Details</legend>
+      <Row>
+        <Col md={6}>
+          <Form.Group>
+            <Form.Label>School Name:</Form.Label>
+            <Form.Control
+              type="text"
+              value={formData.education.xiiSchool}
+              onChange={(e) => handleChange('education', 'xiiSchool', e.target.value)}
+            />
+          </Form.Group>
+        </Col>
+        <Col md={6}>
+          <Form.Group>
+            <Form.Label>Board:</Form.Label>
+            <Form.Control
+              type="text"
+              value={formData.education.xiiBoard}
+              onChange={(e) => handleChange('education', 'xiiBoard', e.target.value)}
+            />
+          </Form.Group>
+        </Col>
+        <Col md={6}>
+          <Form.Group>
+            <Form.Label>Percentage:</Form.Label>
+            <Form.Control
+              type="number"
+              min="0"
+              max="100"
+              step="0.01"
+              value={formData.education.xiiPercentage}
+              onChange={(e) => handleChange('education', 'xiiPercentage', e.target.value)}
+            />
+          </Form.Group>
+        </Col>
+        <Col md={6}>
+          <Form.Group>
+            <Form.Label>Year of Passing:</Form.Label>
+            <Form.Control
+              type="number"
+              min="1900"
+              max="2100"
+              value={formData.education.xiiYear}
+              onChange={(e) => handleChange('education', 'xiiYear', e.target.value)}
+            />
+          </Form.Group>
+        </Col>
+      </Row>
+    </fieldset>
   );
 
   const renderDiplomaDetails = () => (
-    <Row className="mb-3">
-      <Col md={6}>
-        <Form.Group>
-          <Form.Label>Diploma College Name:</Form.Label>
-          <Form.Control
-            type="text"
-            value={formData.education.ugCollege}
-            onChange={(e) => handleChange('education', 'ugCollege', e.target.value)}
-          />
-        </Form.Group>
-      </Col>
-      <Col md={6}>
-        <Form.Group>
-          <Form.Label>Diploma Percentage:</Form.Label>
-          <Form.Control
-            type="number"
-            min="0"
-            max="100"
-            step="0.01"
-            value={formData.education.ugPercentage}
-            onChange={(e) => handleChange('education', 'ugPercentage', e.target.value)}
-          />
-        </Form.Group>
-      </Col>
-      <Col md={6}>
-        <Form.Group>
-          <Form.Label>Diploma Year of Passing:</Form.Label>
-          <Form.Control
-            type="number"
-            min="1900"
-            max="2100"
-            value={formData.education.ugYear}
-            onChange={(e) => handleChange('education', 'ugYear', e.target.value)}
-          />
-        </Form.Group>
-      </Col>
-    </Row>
-  );
-
-  const renderEntranceExamDetails = () => (
-    <Row className="mb-3">
-      <Col md={6}>
-        <Form.Group>
-          <Form.Label>Entrance Exam Name:</Form.Label>
-          <Form.Control
-            type="text"
-            value={formData.entranceAndWorkExperience.entrance}
-            onChange={(e) => handleChange('entranceAndWorkExperience', 'entrance', e.target.value)}
-          />
-        </Form.Group>
-      </Col>
-      <Col md={6}>
-        <Form.Group>
-          <Form.Label>Entrance Exam Score:</Form.Label>
-          <Form.Control
-            type="number"
-            min="0"
-            step="0.01"
-            value={formData.entranceAndWorkExperience.entranceScore}
-            onChange={(e) => handleChange('entranceAndWorkExperience', 'entranceScore', e.target.value)}
-          />
-        </Form.Group>
-      </Col>
-      <Col md={6}>
-        <Form.Group>
-          <Form.Label>Entrance Exam Year:</Form.Label>
-          <Form.Control
-            type="number"
-            min="1900"
-            max="2100"
-            value={formData.entranceAndWorkExperience.entranceYear}
-            onChange={(e) => handleChange('entranceAndWorkExperience', 'entranceYear', e.target.value)}
-          />
-        </Form.Group>
-      </Col>
-    </Row>
+    <fieldset className="border p-3 mb-4">
+      <legend className="w-auto">UG Details</legend>
+      <Row>
+        <Col md={6}>
+          <Form.Group>
+            <Form.Label>College Name:</Form.Label>
+            <Form.Control
+              type="text"
+              value={formData.education.ugCollege}
+              onChange={(e) => handleChange('education', 'ugCollege', e.target.value)}
+            />
+          </Form.Group>
+        </Col>
+        <Col md={6}>
+          <Form.Group>
+            <Form.Label>Percentage:</Form.Label>
+            <Form.Control
+              type="number"
+              min="0"
+              max="100"
+              step="0.01"
+              value={formData.education.ugPercentage}
+              onChange={(e) => handleChange('education', 'ugPercentage', e.target.value)}
+            />
+          </Form.Group>
+        </Col>
+        <Col md={6}>
+          <Form.Group>
+            <Form.Label>Year of Passing:</Form.Label>
+            <Form.Control
+              type="number"
+              min="1900"
+              max="2100"
+              value={formData.education.ugYear}
+              onChange={(e) => handleChange('education', 'ugYear', e.target.value)}
+            />
+          </Form.Group>
+        </Col>
+      </Row>
+    </fieldset>
   );
 
   return (
     <div className="p-4">
       <h2 className="mb-4">Page 3: Educational Details</h2>
 
-      {/* 10th Details */}
+      {/* Class X Details */}
       {renderTenthDetails()}
 
-      {/* 12th Details */}
+      {/* Class XII Details */}
       {renderTwelfthDetails()}
 
-      {/* Diploma Details */}
+      {/* UG Details */}
       {renderDiplomaDetails()}
-
-      {/* Entrance Exam Details */}
-      {renderEntranceExamDetails()}
     </div>
   );
 };
