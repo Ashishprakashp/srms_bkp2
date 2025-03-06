@@ -111,6 +111,32 @@ const Page1 = ({ formData, setFormData }) => {
         </Col>
       </Row>
 
+      {/*personal contact details*/ }
+      <Row className="mb-5">
+    <Col md={4}>
+      <Form.Group>
+        <Form.Label style={{ color: 'black' }}>Student Mobile Number</Form.Label>
+        <Form.Control
+          size="sm"
+          type="number"
+          value={formData.personalInformation.mobile || ''}
+          onChange={(e) => handleChange('personalInformation', 'mobile', e.target.value)}
+        />
+      </Form.Group>
+    </Col>
+    <Col md={4}>
+      <Form.Group>
+        <Form.Label style={{ color: 'black' }}>Student Personal Email ID</Form.Label>
+        <Form.Control
+          size="sm"
+          type="email"
+          value={formData.personalInformation.personalEmail || ''}
+          onChange={(e) => handleChange('personalInformation', 'personalEmail', e.target.value)}
+        />
+      </Form.Group>
+    </Col>
+  </Row>
+
       {/* Full-width Form Sections Below */}
       <Row>
         <Col md={12}>

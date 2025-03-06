@@ -1,34 +1,41 @@
 import React, { useEffect, useState } from 'react';
-import { Card, Row, Col, Button, Spinner } from 'react-bootstrap';
+import { Card, Row, Col, Button, Spinner, Modal, Form } from 'react-bootstrap';
 import TitleBar from './TitleBar.js';
 import './AdminDashboard.css';
-import SideBar from './SideBar.js';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import StudentSideBar from './StudentSideBar.js';
-// import ResetCredentials from './components/ResetCredentials';
 
 const StudentDashboard = ({ services }) => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
-  const [isPasswordReset, setIsPasswordReset] = useState(true); // Default to true
+  const [isPasswordReset, setIsPasswordReset] = useState(true);
   const [showLogoutModal, setShowLogoutModal] = useState(false);
+  const [showPasswordResetModal, setShowPasswordResetModal] = useState(false);
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [errorMessage, setErrorMessage] = useState('');
+  const [errorSuggestions, setErrorSuggestions] = useState([]);
+  const [errorExample, setErrorExample] = useState('');
 
   // Fetch account status and check if password is reset
   const fetchAccountStatus = async () => {
-    const studentId = sessionStorage.getItem('studentId');
+    const studentId = sessionStorage.getItem('student');
     try {
       const response = await axios.get('http://localhost:5000/student/fetch', {
         params: { userId: studentId },
       });
       sessionStorage.setItem('branch', response.data.branch);
-      setIsPasswordReset(response.data.reset !== 0); // Set password reset status
+      setIsPasswordReset(response.data.reset !== 0);
+      if (response.data.reset === 0) {
+        setShowPasswordResetModal(true);
+      }
     } catch (error) {
       console.error('Error fetching account status:', error);
     }
   };
 
-  // Verify session on component mount
+  // Session verification useEffect
   useEffect(() => {
     const verifySession = async () => {
       try {
@@ -37,45 +44,75 @@ const StudentDashboard = ({ services }) => {
         });
 
         if (response.data.authenticated) {
-          fetchAccountStatus(); // Fetch account status if authenticated
+          fetchAccountStatus();
         } else {
-          navigate('/student-login', { replace: true }); // Redirect to login if not authenticated
+          navigate('/student-login', { replace: true });
         }
       } catch (error) {
-        navigate('/student-login', { replace: true }); // Redirect to login on error
+        navigate('/student-login', { replace: true });
       } finally {
         setLoading(false);
       }
     };
-
     verifySession();
   }, [navigate]);
 
-  // Handle logout
-  const handleLogout = async () => {
+  // Password reset handlers
+  const handlePasswordReset = async () => {
     try {
-      await axios.post('http://localhost:5000/logout', {}, {
-        withCredentials: true,
+      const studentId = sessionStorage.getItem('student');
+      const response = await axios.post('http://localhost:5000/student/reset-password', {
+        studentId,
+        newPassword,
+        confirmPassword
       });
-    } finally {
-      navigate('/student-login', { replace: true }); // Redirect to login
-      window.location.reload(); // Optional: Refresh the page to clear state
+
+      if (response.data.success) {
+        setIsPasswordReset(true);
+        setShowPasswordResetModal(false);
+        resetPasswordState();
+      }
+    } catch (error) {
+      if (error.response) {
+        setErrorMessage(error.response.data.message || 'Password reset failed');
+        setErrorSuggestions(error.response.data.suggestions || []);
+        setErrorExample(error.response.data.example || '');
+      } else {
+        setErrorMessage('An error occurred. Please try again.');
+        resetSuggestions();
+      }
     }
   };
 
-  // Handle service click
+  const handleCancelPasswordReset = () => {
+    setShowPasswordResetModal(false);
+    resetPasswordState();
+  };
+
+  const resetPasswordState = () => {
+    setNewPassword('');
+    setConfirmPassword('');
+    setErrorMessage('');
+    resetSuggestions();
+  };
+
+  const resetSuggestions = () => {
+    setErrorSuggestions([]);
+    setErrorExample('');
+  };
+
+  // Service click handler
   const handleServiceClick = (serviceTitle) => {
-    if (serviceTitle === 'Student Form') {
-      navigate('/student-form');
-    } else if (serviceTitle === 'Semester Form') {
-      navigate('/student-dashboard/semforms');
-    } else if (serviceTitle === 'Reset Credentials') {
-      navigate('/reset-credentials');
-    } else if (serviceTitle === 'Semester Enrollment') {
-      navigate('/semester-enroll');
-    }
+    const routes = {
+      'Student Form': '/student-form',
+      'Semester Form': '/student-dashboard/semforms',
+      'Reset Credentials': '/reset-credentials',
+      'Semester Enrollment': '/semester-enroll'
+    };
+    if (routes[serviceTitle]) navigate(routes[serviceTitle]);
   };
 
+  // Loading state
   if (loading) {
     return (
       <div className="d-flex justify-content-center align-items-center vh-100">
@@ -95,7 +132,7 @@ const StudentDashboard = ({ services }) => {
         <div className="main-content-ad-dboard flex-grow-1">
           <div className="p-4">
             <div className="d-flex justify-content-between align-items-center mb-4">
-              <h1>Welcome {sessionStorage.getItem('studentId')}</h1>
+              <h1>Welcome {sessionStorage.getItem('student')}</h1>
             </div>
 
             {/* Logout Modal */}
@@ -107,7 +144,13 @@ const StudentDashboard = ({ services }) => {
                     <Button variant="secondary" className="fs-5 px-5" onClick={() => setShowLogoutModal(false)}>
                       Cancel
                     </Button>
-                    <Button variant="danger" className="fs-5 px-5" onClick={handleLogout}>
+                    <Button variant="danger" className="fs-5 px-5" onClick={() => {
+                      axios.post('http://localhost:5000/logout', {}, { withCredentials: true })
+                        .finally(() => {
+                          navigate('/student-login', { replace: true });
+                          window.location.reload();
+                        });
+                    }}>
                       Logout
                     </Button>
                   </div>
@@ -115,7 +158,67 @@ const StudentDashboard = ({ services }) => {
               </div>
             )}
 
-            {/* Main Content */}
+            {/* Password Reset Modal */}
+            {showPasswordResetModal && (
+              <div className="logout-modal-overlay">
+                <div className="logout-modal-content p-5">
+                  <h3 className="text-center mb-4">Reset Password</h3>
+                  <Form>
+                    <Form.Group className="mb-3">
+                      <Form.Label>New Password</Form.Label>
+                      <Form.Control
+                        type="password"
+                        value={newPassword}
+                        onChange={(e) => setNewPassword(e.target.value)}
+                        placeholder="Enter new password"
+                      />
+                    </Form.Group>
+                    <Form.Group className="mb-3">
+                      <Form.Label>Confirm Password</Form.Label>
+                      <Form.Control
+                        type="password"
+                        value={confirmPassword}
+                        onChange={(e) => setConfirmPassword(e.target.value)}
+                        placeholder="Re-enter new password"
+                      />
+                    </Form.Group>
+
+                    {errorMessage && (
+                      <div className="text-center text-danger mb-3">
+                        <div>{errorMessage}</div>
+                        {errorSuggestions.length > 0 && (
+                          <div className="mt-2 text-start">
+                            <small>Requirements:</small>
+                            <ul className="list-unstyled ms-3">
+                              {errorSuggestions.map((suggestion, index) => (
+                                <li key={index} className="small">• {suggestion}</li>
+                              ))}
+                            </ul>
+                            {errorExample && (
+                              <div className="mt-2">
+                                <small>Example: </small>
+                                <code>{errorExample}</code>
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    <div className="modal-buttons mt-4" style={{ display: 'flex', justifyContent: 'center' }}>
+                      <Button variant="secondary" className="fs-5 px-5" onClick={handleCancelPasswordReset}>
+                        Cancel
+                      </Button>
+                      <Button variant="primary" className="fs-5 px-5" onClick={handlePasswordReset}>
+                        Reset
+                      </Button>
+                    </div>
+                  </Form>
+                </div>
+              </div>
+            )}
+
+            {/* Services Grid */}
             <Row xs={1} sm={2} md={3} className="g-4">
               {services.map((service, index) => (
                 <Col key={index}>
@@ -135,9 +238,6 @@ const StudentDashboard = ({ services }) => {
           </div>
         </div>
       </div>
-
-      {/* Show password reset form if password is not reset */}
-      {/* {!isPasswordReset && <ResetCredentials userType="student" />} */}
     </>
   );
 };

@@ -34,6 +34,10 @@ const StudentAccSchema = new mongoose.Schema({
         type: Number,
         required: [true, 'Reset is required']
       },
+      can_fill:{
+        type: Number,
+        required: [true, 'can_fill is required']
+      }
   });
 
   const StudentAcc = mongoose.model('StudentAcc', StudentAccSchema);

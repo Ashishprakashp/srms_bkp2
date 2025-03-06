@@ -24,6 +24,7 @@ export default function StudentLoginCr() {
         to_year:"",
         password: "",
         reset: 0,
+        can_fill: 0
     });
     const [showCreateLogin, setShowCreateLogin] = useState(false); // State to toggle UI
     const [showAutoLoginCreation, setShowAutoLoginCreation] = useState(false); // State to toggle Auto Login Creation UI
@@ -128,6 +129,7 @@ export default function StudentLoginCr() {
             to_year:"",
             password: "",
             reset: 0,
+            can_fill: 0
         });
     };
 
@@ -175,6 +177,7 @@ export default function StudentLoginCr() {
                 to_year: item["End year"] ||"",
                 password: nanoid(12), // Generate a random password
                 reset: 0,
+                can_fill: 0
             }));
 
             // Update the users state
@@ -485,6 +488,7 @@ const StudentTable = ({ users, removeUser }) => (
                             <th>Regulation</th>
                             <th>From Year</th>
                             <th>To Year</th>
+                            <th>Can_fill</th>
                             {removeUser && <th>Action</th>}
                         </tr>
                     </thead>
@@ -497,6 +501,7 @@ const StudentTable = ({ users, removeUser }) => (
                                 <td>{user.regulation}</td>
                                 <td>{user.from_year}</td>
                                 <td>{user.to_year}</td>
+                                <td>{user.can_fill}</td>
                                 {removeUser && (
                                     <td>
                                         <Button variant="danger" onClick={() => removeUser(index)}>

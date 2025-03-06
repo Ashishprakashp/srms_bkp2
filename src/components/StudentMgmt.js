@@ -51,7 +51,7 @@ useEffect(() => {
               {[
                 ['Create Login', 'card-1', '/admin-dashboard/student-mgmt/create-login'],
                 ['Reset Login', 'card-2', ''],
-                ['Student Details Approval', 'card-3', ''],
+                ['Student Details Approval', 'card-3', '/student-details-approval'],
                 ['Grades Approval', 'card-4', ''],
                 ['Generate Report', 'card-1', ''],
                 ['Create/Edit Document Templates', 'card-2', ''],

@@ -761,6 +761,37 @@ app.post('/studentlogin', async (req, res) => {
   }
 });
 
+app.get("/student/fetch", async (req, res) => {
+  console.log("UserId: "+req.query.userId);
+  const { userId } = req.query;
+  
+  // Validate input
+  if (!userId) {
+    return res.status(400).json({ success: false, message: "User ID is required." });
+  }
+
+  try {
+    // Find the student by studentId
+    console.log("stident Id: "+userId);
+    const student = await StudentAcc.findOne({ studentId: userId });
+    
+    if (!student) {
+      return res.status(404).json({ success: false, message: "Student not found." });
+    }
+
+    // Return the branch and reset status
+    res.status(200).json({
+      success: true,
+      branch: student.branch,
+      reset: student.reset,
+    });
+  } catch (error) {
+    console.error("Error fetching student account status:", error);
+    res.status(500).json({ success: false, message: "An error occurred. Please try again." });
+  }
+});
+
+
 app.get('/student/:studentId', async (req, res) => {
   const { studentId } = req.params;
 
@@ -778,6 +809,7 @@ app.get('/student/:studentId', async (req, res) => {
       regulation: student.regulation,
       from_year: student.from_year,
       to_year: student.to_year,
+      can_fill: student.can_fill,
     });
   } catch (error) {
     console.error('Error fetching student details:', error);
@@ -785,6 +817,83 @@ app.get('/student/:studentId', async (req, res) => {
   }
 });
 
+app.post("/student/reset-password", async (req, res) => {
+  const { studentId, newPassword, confirmPassword } = req.body;
+
+  // Validate input
+  if (!studentId || !newPassword || !confirmPassword) {
+    return res.status(400).json({ success: false, message: "All fields are required." });
+  }
+
+  if (newPassword !== confirmPassword) {
+    return res.status(400).json({ success: false, message: "Passwords do not match." });
+  }
+
+  if (newPassword.length < 6) {
+    return res.status(400).json({ success: false, message: "Password must be at least 6 characters long." });
+  }
+
+  try {
+    // Find the student by studentId
+    const student = await StudentAcc.findOne({ studentId });
+
+    if (!student) {
+      return res.status(404).json({ success: false, message: "Student not found." });
+    }
+
+    // Hash the new password
+    const salt = await bcrypt.genSalt(10);
+    const hashedPassword = await bcrypt.hash(newPassword, salt);
+
+    // Update the password and set reset to 1
+    student.password = hashedPassword;
+    student.reset = 1;
+
+    // Save the updated student document
+    await student.save();
+
+    res.status(200).json({ success: true, message: "Password reset successfully." });
+  } catch (error) {
+    console.error("Error resetting password:", error);
+    res.status(500).json({ success: false, message: "An error occurred. Please try again." });
+  }
+});
+
+// Add this route to your student routes
+app.get('/student-class/all', async (req, res) => {
+  try {
+    const students = await StudentAcc.find({});
+    res.json(students);
+  } catch (error) {
+    res.status(500).json({ message: 'Error fetching students' });
+  }
+});
+
+app.post('/student-class/update-can-fill', async (req, res) => {
+  try {
+    const { branch, regulation, from_year, to_year } = req.body;
+    
+    const result = await StudentAcc.updateMany(
+      { 
+        branch,
+        regulation,
+        from_year,
+        to_year
+      },
+      { $set: { can_fill: 1 } }
+    );
+
+    res.json({ 
+      success: true,
+      updatedCount: result.modifiedCount
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  }
+});
 
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => console.log(`Server running on http://localhost:${PORT}`));

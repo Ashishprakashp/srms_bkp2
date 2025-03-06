@@ -1,11 +1,23 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Form, Row, Col } from 'react-bootstrap';
 
 const Page3 = ({ formData, setFormData }) => {
+  // State to track if "Other" is selected for xBoard and xiiBoard
+  const [showOtherXBoard, setShowOtherXBoard] = useState(false);
+  const [showOtherXiiBoard, setShowOtherXiiBoard] = useState(false);
+
   const handleChange = (section, field, value) => {
     // Convert numeric fields to numbers
     if (field === 'year' || field === 'percentage' || field === 'cutoff') {
       value = parseFloat(value);
+    }
+
+    // Handle "Other" selection for xBoard and xiiBoard
+    if (field === 'xBoard') {
+      setShowOtherXBoard(value === 'Other');
+    }
+    if (field === 'xiiBoard') {
+      setShowOtherXiiBoard(value === 'Other');
     }
 
     setFormData((prevData) => ({
@@ -34,12 +46,27 @@ const Page3 = ({ formData, setFormData }) => {
         <Col md={6}>
           <Form.Group>
             <Form.Label>Board:</Form.Label>
-            <Form.Control
-              type="text"
+            <Form.Select
               value={formData.education.xBoard}
               onChange={(e) => handleChange('education', 'xBoard', e.target.value)}
-            />
+            >
+              <option value="---">---</option>
+              <option value="State-Board">State-Board</option>
+              <option value="CBSE">CBSE</option>
+              <option value="ICSE">ICSE</option>
+              <option value="Other">Other</option>
+            </Form.Select>
           </Form.Group>
+          {showOtherXBoard && (
+            <Form.Group className="mt-2">
+              <Form.Control
+                type="text"
+                placeholder="Specify other board"
+                value={formData.education.xBoardOther || ''}
+                onChange={(e) => handleChange('education', 'xBoardOther', e.target.value)}
+              />
+            </Form.Group>
+          )}
         </Col>
         <Col md={6}>
           <Form.Group>
@@ -87,12 +114,27 @@ const Page3 = ({ formData, setFormData }) => {
         <Col md={6}>
           <Form.Group>
             <Form.Label>Board:</Form.Label>
-            <Form.Control
-              type="text"
+            <Form.Select
               value={formData.education.xiiBoard}
               onChange={(e) => handleChange('education', 'xiiBoard', e.target.value)}
-            />
+            >
+              <option value="---">---</option>
+              <option value="State-Board">State-Board</option>
+              <option value="CBSE">CBSE</option>
+              <option value="ICSE">ICSE</option>
+              <option value="Other">Other</option>
+            </Form.Select>
           </Form.Group>
+          {showOtherXiiBoard && (
+            <Form.Group className="mt-2">
+              <Form.Control
+                type="text"
+                placeholder="Specify other board"
+                value={formData.education.xiiBoardOther || ''}
+                onChange={(e) => handleChange('education', 'xiiBoardOther', e.target.value)}
+              />
+            </Form.Group>
+          )}
         </Col>
         <Col md={6}>
           <Form.Group>
