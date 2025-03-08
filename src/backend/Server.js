@@ -10,6 +10,11 @@ import MongoStore from 'connect-mongo';
 import cookieParser from 'cookie-parser';
 import Faculty from './schemas/Faculty.js';
 import StudentAcc from './schemas/StudentAcc.js';
+// import { uploadMiddleware, getFilePaths } from './utils/fileUpload.js';
+import Student from './schemas/Student.js';
+import multer from 'multer';
+import path from 'path';
+import fs from 'fs';
 
 dotenv.config();
 
@@ -24,6 +29,7 @@ app.use(cors({
 }));
 
 app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
 
 // Session configuration
@@ -761,6 +767,26 @@ app.post('/studentlogin', async (req, res) => {
   }
 });
 
+
+const setFilled = async (studentId) => {
+  try {
+    const student = await StudentAcc.findOneAndUpdate(
+      { studentId },
+      { filled: 1 },
+      { new: true }
+    );
+
+    if (!student) {
+      throw new Error("Student not found");
+    }
+
+    return student;
+  } catch (error) {
+    throw new Error(error.message);
+  }
+};
+
+
 app.get("/student/fetch", async (req, res) => {
   console.log("UserId: "+req.query.userId);
   const { userId } = req.query;
@@ -896,6 +922,8 @@ app.post('/student-class/update-can-fill', async (req, res) => {
   }
 });
 
+
+
 app.get('/faculty/advisors', async (req, res) => {
   try {
     const facultyAdvisors = await Faculty.find({ additional_role: 'Faculty Advisor' });
@@ -905,6 +933,129 @@ app.get('/faculty/advisors', async (req, res) => {
     res.status(500).json({ message: 'Failed to fetch faculty advisors' });
   }
 });
+
+
+const storage = multer.memoryStorage(); // Store files in memory first
+
+const fileFilter = (req, file, cb) => {
+  const allowedMimeTypes = ["image/jpeg", "image/png", "application/pdf"];
+  if (allowedMimeTypes.includes(file.mimetype)) {
+    cb(null, true);
+  } else {
+    cb(new Error("Invalid file type. Only JPEG, PNG, and PDF files are allowed."), false);
+  }
+};
+
+const upload = multer({
+  storage,
+  fileFilter,
+  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB limit
+});
+
+const uploadMiddleware = upload.fields([
+  { name: "passportPhoto", maxCount: 1 },
+  { name: "xMarksheet", maxCount: 1 },
+  { name: "xiiMarksheet", maxCount: 1 },
+  { name: "ugProvisionalCertificate", maxCount: 1 },
+  { name: "scorecard", maxCount: 1 },
+  { name: "certificates", maxCount: 5 },
+]);
+
+// Student registration route
+app.post("/student", uploadMiddleware, async (req, res) => {
+  try {
+    console.log("Received request:", req.body);
+
+    // Ensure form data is present
+    if (!req.body.data) {
+      return res.status(400).json({ error: "Missing student data in request" });
+    }
+
+    // Parse JSON data
+    const studentData = JSON.parse(req.body.data);
+    const { personalInformation, education, entranceAndWorkExperience } = studentData;
+    
+    const { branch = "default", regulation = "default", batch = "default", register = "default" } = personalInformation;
+
+    console.log(`Branch: ${branch}, Regulation: ${regulation}, Batch: ${batch}, Register: ${register}`);
+
+    // Define the correct upload path
+    const uploadPath = path.join(process.cwd(), "uploads", branch, regulation, batch, register);
+    
+    // Ensure directory exists
+    fs.mkdirSync(uploadPath, { recursive: true });
+
+    // Save files from memory to disk
+    const saveFile = async (file, fieldname, index = 0) => {
+      if (!file) return null;
+
+      const ext = path.extname(file.originalname);
+      const filename = `${register}_${fieldname}${index > 0 ? `_${index}` : ""}${ext}`;
+      const filePath = path.join(uploadPath, filename);
+
+      // Write file to disk
+      await fs.promises.writeFile(filePath, file.buffer);
+      return filePath;
+    };
+
+    // Process uploaded files
+    const movedFilePaths = {};
+
+    if (req.files) {
+      movedFilePaths.passportPhoto = await saveFile(req.files.passportPhoto?.[0], "passportPhoto");
+      movedFilePaths.xMarksheet = await saveFile(req.files.xMarksheet?.[0], "xMarksheet");
+      movedFilePaths.xiiMarksheet = await saveFile(req.files.xiiMarksheet?.[0], "xiiMarksheet");
+      movedFilePaths.ugProvisionalCertificate = await saveFile(req.files.ugProvisionalCertificate?.[0], "ugProvisionalCertificate");
+      movedFilePaths.scorecard = await saveFile(req.files.scorecard?.[0], "scorecard");
+
+      if (req.files.certificates) {
+        movedFilePaths.certificates = await Promise.all(
+          req.files.certificates.map((file, index) => saveFile(file, "certificate", index))
+        );
+      }
+    }
+
+    // Merge file paths into student data
+    const completeData = {
+      ...studentData,
+      personalInformation: {
+        ...personalInformation,
+        passportPhoto: movedFilePaths.passportPhoto || "",
+      },
+      education: {
+        ...education,
+        xMarksheet: movedFilePaths.xMarksheet || "",
+        xiiMarksheet: movedFilePaths.xiiMarksheet || "",
+        ugProvisionalCertificate: movedFilePaths.ugProvisionalCertificate || "",
+      },
+      entranceAndWorkExperience: {
+        ...entranceAndWorkExperience,
+        scorecard: movedFilePaths.scorecard || "",
+        workExperience: entranceAndWorkExperience.workExperience.map((exp, index) => ({
+          ...exp,
+          certificate: movedFilePaths.certificates?.[index] || "",
+        })),
+      },
+    };
+
+    
+    console.log("Saving student data...");
+    const student = new Student(completeData);
+    await student.save();
+    const status_update = await setFilled(student.personalInformation.register);
+    console.log("Student data saved successfully!");
+
+    res.status(201).json({ message: "Student data saved and status updated ", student });
+  } catch (error) {
+    console.error("Error processing request:", error);
+    res.status(400).json({
+      error: error.message,
+      stack: error.stack,
+    });
+  }
+});
+
+
 
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => console.log(`Server running on http://localhost:${PORT}`));

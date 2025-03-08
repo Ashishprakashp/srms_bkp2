@@ -16,8 +16,8 @@ const StudentForm = () => {
   const [loading, setLoading] = useState(true);
   const [formEnabled, setFormEnabled] = useState(false);
   const branch = sessionStorage.getItem('branch');
-  const isBtech = branch === 'Btech';
-  const totalPages = isBtech ? 4 : 5;
+  const isBtech = branch.startsWith('BTECH'); // Check if branch starts with BTECH
+  const totalPages = isBtech ? 4 : 5; // Skip Page 4 for BTECH students
 
   const [formData, setFormData] = useState({
     personalInformation: {
@@ -35,6 +35,7 @@ const StudentForm = () => {
       mail: '',
       fa: 'None',
       passportPhoto: '',
+      passportPhotoFile: null, // Added to store the file object
       mobile: '',
       personalEmail: '',
     },
@@ -58,16 +59,19 @@ const StudentForm = () => {
       ugYear: null,
       ugPercentage: null,
       ugProvisionalCertificate: '',
+      ugProvisionalCertificateFile: null, // Added to store the file object
       xiiBoard: '',
       xiiSchool: '',
       xiiYear: null,
       xiiPercentage: null,
       xiiMarksheet: '',
+      xiiMarksheetFile: null, // Added to store the file object
       xBoard: '',
       xSchool: '',
       xYear: null,
       xPercentage: null,
       xMarksheet: '',
+      xMarksheetFile: null, // Added to store the file object
     },
     entranceAndWorkExperience: {
       entrance: '',
@@ -75,15 +79,10 @@ const StudentForm = () => {
       entranceScore: null,
       entranceYear: null,
       scorecard: '',
-      workExperience: [
-        {
-          employerName: '',
-          role: '',
-          expYears: null,
-          certificate: '',
-        },
-      ],
+      scorecardFile: null, // Added to store the file object
+      workExperience: [],
     },
+    acceptance: false,
   });
 
   useEffect(() => {
@@ -145,7 +144,7 @@ const StudentForm = () => {
       personalInformation.contact &&
       personalInformation.mail &&
       personalInformation.mobile &&
-      personalInformation.personalEmail
+      personalInformation.passportPhoto
     );
   };
 
@@ -176,18 +175,24 @@ const StudentForm = () => {
       education.xiiPercentage !== null &&
       education.ugCollege &&
       education.ugYear !== null &&
-      education.ugPercentage !== null
+      education.ugPercentage !== null &&
+      education.ugProvisionalCertificate &&
+      education.xMarksheet &&
+      education.xiiMarksheet
     );
   };
 
   const validatePage4 = (formData) => {
-    // Page 4 is not mandatory, so always return true
-    return true;
+    const { entranceAndWorkExperience } = formData;
+    // Page 4 is not mandatory for BTECH students
+    if (isBtech) return true; // Skip validation for BTECH students
+    // Add validation logic for non-BTECH students if needed
+    return entranceAndWorkExperience.scorecard; // Example: Assume no validation required for Page4
   };
 
   const validatePage5 = (formData) => {
-    // Add validation logic for Page5 if needed
-    return true; // Example: Assume no validation required for Page5
+    // Ensure the acceptance checkbox is checked
+    return formData.acceptance === true;
   };
 
   const validateCurrentPage = () => {
@@ -199,7 +204,7 @@ const StudentForm = () => {
       case 3:
         return validatePage3(formData);
       case 4:
-        return validatePage4(formData); // Page 4 is not mandatory
+        return isBtech ? true : validatePage4(formData); // Skip validation for BTECH students
       case 5:
         return validatePage5(formData);
       default:
@@ -208,10 +213,52 @@ const StudentForm = () => {
   };
 
   const handleSubmit = async () => {
-    console.log('Form Data: ', formData);
+    if (!validatePage5(formData)) {
+      alert('You must accept the declaration by checking the checkbox before submitting the application.');
+      return;
+    }
+  
+    const formDataToSend = new FormData();
+  
+    // Append all files
+    const appendFile = (fieldName, file) => {
+      if (file instanceof File) {
+        formDataToSend.append(fieldName, file);
+      }
+    };
+    console.log(formData);
+    // Append files from personal information
+    appendFile('passportPhoto', formData.personalInformation.passportPhotoFile);
+  
+    // Append files from education
+    appendFile('xMarksheet', formData.education.xMarksheetFile);
+    appendFile('xiiMarksheet', formData.education.xiiMarksheetFile);
+    appendFile('ugProvisionalCertificate', formData.education.ugProvisionalCertificateFile);
+  
+    // Append files from entranceAndWorkExperience
+    appendFile('scorecard', formData.entranceAndWorkExperience.scorecardFile);
+    formData.entranceAndWorkExperience.workExperience.forEach((exp, index) => {
+      appendFile(`certificates`, exp.certificateFile);
+    });
+  
+    // Append other form data
+    formDataToSend.append('data', JSON.stringify(formData));
+    
+    console.log("Hi");
+    console.log(formData);
+    // Debug FormData
+    for (const [key, value] of formDataToSend.entries()) {
+      console.log(key, value);
+    }
+  
     try {
-      const response = await axios.post('http://localhost:5000/student', { student: formData });
+      const response = await axios.post('http://localhost:5000/student', formDataToSend, {
+        headers: {
+          'Content-Type': 'multipart/form-data'
+        }
+      });
       console.log(response);
+      alert('Application submitted successfully!');
     } catch (error) {
       alert('Error saving student details: ' + error.message);
     }
@@ -246,14 +293,40 @@ const StudentForm = () => {
     }
   };
 
+  const handleImageUpload = (event, setFormData) => {
+    const file = event.target.files[0]; // Get the first file from the input
+
+    if (file && file instanceof File) {
+      const reader = new FileReader();
+
+      reader.onload = (e) => {
+        const imageUrl = URL.createObjectURL(file); // Create a URL for the file
+
+        // Update the form data with the new file and its URL
+        setFormData((prevData) => ({
+          ...prevData,
+          personalInformation: {
+            ...prevData.personalInformation,
+            passportPhoto: imageUrl,
+            passportPhotoFile: file, // Store the file object for later use
+          },
+        }));
+      };
+
+      reader.readAsDataURL(file); // Read the file as a data URL
+    } else {
+      console.error('Invalid file selected');
+    }
+  };
+
   const renderPage = () => {
     if (isBtech && currentPage === 4) {
-      return <Page5 formData={formData} setFormData={setFormData} />;
+      return <Page5 formData={formData} setFormData={setFormData} />; // Skip Page 4 for BTECH students
     }
 
     switch (currentPage) {
       case 1:
-        return <Page1 formData={formData} setFormData={setFormData} />;
+        return <Page1 formData={formData} setFormData={setFormData} handleImageUpload={handleImageUpload} />;
       case 2:
         return <Page2 formData={formData} setFormData={setFormData} />;
       case 3:
@@ -277,66 +350,63 @@ const StudentForm = () => {
     );
   }
 
-
-
   return (
     <div>
       <TitleBar />
       <div className="d-flex flex-grow-1">
         <StudentSideBar />
-        {formEnabled ?(
+        {formEnabled ? (
           <Container fluid className="p-4" style={{ overflowY: 'auto', height: 'calc(100vh - 56px)' }}>
-          {/* Page Navigation */}
-          <Row className="mb-4">
-            <Col>
-              <Nav className="justify-content-center flex-wrap">
-                {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
-                  <Nav.Item key={page} className="mb-2">
-                    <Button
-                      variant={currentPage === page ? 'primary' : 'outline-primary'}
-                      className="mx-1"
-                      onClick={() => handlePageNavigation(page)}
-                    >
-                      Page {page}
-                    </Button>
-                  </Nav.Item>
-                ))}
-              </Nav>
-            </Col>
-          </Row>
+            {/* Page Navigation */}
+            <Row className="mb-4">
+              <Col>
+                <Nav className="justify-content-center flex-wrap">
+                  {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+                    <Nav.Item key={page} className="mb-2">
+                      <Button
+                        variant={currentPage === page ? 'primary' : 'outline-primary'}
+                        className="mx-1"
+                        onClick={() => handlePageNavigation(page)}
+                      >
+                        Page {page}
+                      </Button>
+                    </Nav.Item>
+                  ))}
+                </Nav>
+              </Col>
+            </Row>
 
-          {/* Form Content */}
-          <Row className="justify-content-center">
-            <Col xl={10} lg={12} md={12}>
-              {renderPage()}
+            {/* Form Content */}
+            <Row className="justify-content-center">
+              <Col xl={10} lg={12} md={12}>
+                {renderPage()}
 
-              {/* Navigation Buttons */}
-              <Row className="justify-content-between mt-4">
-                <Col className="text-start">
-                  {currentPage > 1 && (
-                    <Button variant="secondary" onClick={handleBack}>
-                      Back
-                    </Button>
-                  )}
-                </Col>
-                <Col className="text-end">
-                  {currentPage < totalPages ? (
-                    <Button variant="primary" onClick={handleNext}>
-                      Next
-                    </Button>
-                  ) : (
-                    <Button variant="success" onClick={handleSubmit}>
-                      Submit Application
-                    </Button>
-                  )}
-                </Col>
-              </Row>
-            </Col>
-          </Row>
-        </Container>
-
-        ):(
-          <Container fluid className="p-4 d-flex align-items-center justify-content-center" 
+                {/* Navigation Buttons */}
+                <Row className="justify-content-between mt-4">
+                  <Col className="text-start">
+                    {currentPage > 1 && (
+                      <Button variant="secondary" onClick={handleBack}>
+                        Back
+                      </Button>
+                    )}
+                  </Col>
+                  <Col className="text-end">
+                    {currentPage < totalPages ? (
+                      <Button variant="primary" onClick={handleNext}>
+                        Next
+                      </Button>
+                    ) : (
+                      <Button variant="success" onClick={handleSubmit}>
+                        Submit Application
+                      </Button>
+                    )}
+                  </Col>
+                </Row>
+              </Col>
+            </Row>
+          </Container>
+        ) : (
+          <Container fluid className="p-4 d-flex align-items-center justify-content-center"
             style={{ height: 'calc(100vh - 56px)' }}>
             <div className="text-center">
               <h2 className="mb-4">This process is closed now!</h2>
@@ -345,9 +415,7 @@ const StudentForm = () => {
               </Button>
             </div>
           </Container>
-
         )}
-        
       </div>
     </div>
   );

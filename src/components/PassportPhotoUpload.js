@@ -2,100 +2,75 @@ import React, { useState } from "react";
 import { useDropzone } from "react-dropzone";
 import { Card, Alert } from "react-bootstrap";
 
-const PassportPhotoUpload = () => {
-  const [uploadedImage, setUploadedImage] = useState(null);
+const PassportPhotoUpload = ({ onImageUpload, uploadedImage }) => {
   const [error, setError] = useState("");
 
-  // File validation
-  const validateFile = (file) => {
-    const allowedTypes = ["image/jpeg", "image/png", "image/jpg"];
-    const maxSize = 2 * 1024 * 1024; // 2MB
-
-    if (!allowedTypes.includes(file.type)) {
-      setError("Invalid file type. Please upload a JPEG or PNG image.");
-      return false;
-    }
-
-    if (file.size > maxSize) {
-      setError("File size is too large. Maximum size is 2MB.");
-      return false;
-    }
-
-    setError("");
-    return true;
-  };
-
-  // Handle file drop/upload
   const onDrop = (acceptedFiles) => {
-    if (acceptedFiles.length === 0) {
-      setError("Invalid file. Please upload a valid JPEG or PNG image.");
-      return;
-    }
-
     const file = acceptedFiles[0];
-
-    if (validateFile(file)) {
-      const reader = new FileReader();
-      reader.onload = () => {
-        setUploadedImage(reader.result);
-      };
-      reader.readAsDataURL(file);
+    if (file) {
+      // Pass the File object directly to parent
+      onImageUpload(file);
     }
   };
 
-  // Configure dropzone
-  const { getRootProps, getInputProps } = useDropzone({
+  const { getRootProps, getInputProps, open } = useDropzone({
     onDrop,
-    accept: "image/jpeg, image/png, image/jpg",
-    maxSize: 2 * 1024 * 1024, // 2MB
-    multiple: false, // Allow only one image
+    accept: "image/*",
+    maxSize: 2 * 1024 * 1024,
+    multiple: false,
+    noClick: true
   });
 
   return (
     <Card style={{ width: '200px', height: '250px', marginLeft: 'auto' }}>
       <Card.Body>
+        {/* ... existing preview code ... */}
         <Card.Title>Photo</Card.Title>
 
         {/* Dropzone Area */}
-        <div
-          {...getRootProps()}
-          style={{
-            border: '2px dashed #007bff',
-            borderRadius: '10px',
-            padding: '20px',
-            textAlign: 'center',
-            cursor: 'pointer',
-            height: '150px',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-          }}
-        >
-          <input {...getInputProps()} />
-          <p className="text-muted">
-            Drag & drop a photo here, or click to select a file (JPEG or PNG, max 2MB).
-          </p>
-        </div>
+        {!uploadedImage && (
+          <div
+            {...getRootProps()}
+            style={{
+              border: "2px dashed #007bff",
+              borderRadius: "10px",
+              padding: "20px",
+              textAlign: "center",
+              cursor: "pointer",
+              height: "150px",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+            }}
+            onClick={open} // Manually trigger file dialog on click
+          >
+            <input {...getInputProps()} />
+            <p className="text-muted">
+              Drag & drop a photo here, or click to select a file (JPEG or PNG, max 2MB).
+            </p>
+          </div>
+        )}
 
         {/* Image Preview */}
-        <div style={{ textAlign: 'center', height: '200px', overflow: 'hidden', marginTop: '1rem' }}>
-          <p className="image-preview-label">Preview:</p>
-          <div>
-            {uploadedImage ? (
+        {uploadedImage && (
+          <div
+            style={{ textAlign: "center", height: "200px", overflow: "hidden", marginTop: "1rem" }}
+            onClick={open} // Click on the preview to open file dialog
+          >
+            <p className="image-preview-label">Preview:</p>
+            <div>
               <img
                 src={uploadedImage}
                 alt="Uploaded Preview"
-                style={{ maxWidth: '100%', maxHeight: '100%', borderRadius: '10px' }}
+                style={{ maxWidth: "100%", maxHeight: "100%", borderRadius: "10px", cursor: "pointer" }}
               />
-            ) : (
-              <p className="text-muted">No Image Selected</p>
-            )}
+            </div>
           </div>
-        </div>
+        )}
 
         {/* Error Message */}
         {error && (
-          <Alert variant="danger" style={{ marginTop: '1rem' }}>
+          <Alert variant="danger" style={{ marginTop: "1rem" }}>
             {error}
           </Alert>
         )}
