@@ -8,6 +8,7 @@ import SideBar from "./SideBar.js";
 import { useNavigate } from "react-router-dom";
 import Folder from "./res/folder.png";
 import './AdminDashboard.css';
+import FacultyAdvisorDropdown from "./FacultyAdvisorDropdown.js";
 import axios from 'axios';
 
 export default function StudentLoginCr() {
@@ -15,6 +16,7 @@ export default function StudentLoginCr() {
     const [loading, setLoading] = useState(true);
     const [fileName, setFileName] = useState("");
     const [users, setUsers] = useState([]);
+    
     const [user, setUser] = useState({
         studentId: "",
         name: "",
@@ -22,9 +24,12 @@ export default function StudentLoginCr() {
         regulation: "--Regulation--",
         from_year:"",
         to_year:"",
+        _class:"",
         password: "",
         reset: 0,
-        can_fill: 0
+        can_fill: 0,
+        filled:0,
+        facultyAdvisor:"",
     });
     const [showCreateLogin, setShowCreateLogin] = useState(false); // State to toggle UI
     const [showAutoLoginCreation, setShowAutoLoginCreation] = useState(false); // State to toggle Auto Login Creation UI
@@ -98,7 +103,7 @@ export default function StudentLoginCr() {
     const handleDownloadTemplate = () => {
         // Sample data for the template
         const data = [
-            ["Student ID", "Name", "Branch", "Regulation","Start year","End year"], // Example row
+            ["Student ID", "Name", "Branch", "Regulation","Start year","End year","Class","Faculty Advisor"], // Example row
         ];
 
         // Create a worksheet
@@ -127,9 +132,12 @@ export default function StudentLoginCr() {
             regulation: "--Regulation--",
             from_year:"",
             to_year:"",
+            _class:"",
             password: "",
             reset: 0,
-            can_fill: 0
+            can_fill: 0,
+            filled:0,
+            facultyAdvisor:"",
         });
     };
 
@@ -158,7 +166,7 @@ export default function StudentLoginCr() {
             const jsonData = await readXLSFile(inputElement.files[0]);
 
             // Validate the Excel data
-            const requiredColumns = ["Student ID", "Name", "Branch", "Regulation","Start year","End year"];
+            const requiredColumns = ["Student ID", "Name", "Branch", "Regulation","Start year","End year","Class"];
             const hasRequiredColumns = requiredColumns.every((column) =>
                 jsonData.some((row) => column in row)
             );
@@ -175,9 +183,12 @@ export default function StudentLoginCr() {
                 regulation: item["Regulation"] || "--Regulation--",
                 from_year: item["Start year"] ||"",
                 to_year: item["End year"] ||"",
+                _class: item["Class"] ||"",
                 password: nanoid(12), // Generate a random password
                 reset: 0,
-                can_fill: 0
+                can_fill: 0,
+                filled:0,
+                facultyAdvisor:item["Faculty Advisor"] ||"",
             }));
 
             // Update the users state
@@ -201,12 +212,14 @@ export default function StudentLoginCr() {
         try {
             // Convert data to Excel sheet
             const ws = XLSX.utils.json_to_sheet(
-                data.map(({ studentId, name, branch, regulation, password }) => ({
+                data.map(({ studentId, name, branch, regulation, password ,_class,facultyAdvisor}) => ({
                     "User ID": studentId,
                     Name: name,
                     Branch: branch,
                     Regulation: regulation,
-                    Password: password
+                    Class: _class,
+                    Password: password,
+                    FacultyAdvisor: facultyAdvisor,
                 }))
             );
             const wb = XLSX.utils.book_new();
@@ -315,6 +328,8 @@ export default function StudentLoginCr() {
                                                 ))}
                                             </Form.Select>
                                             </Col>
+                                            </Row>
+                                            <Row>
                                             <Col>
                                                 <Form.Control
                                                     type="text"
@@ -333,8 +348,19 @@ export default function StudentLoginCr() {
                                                     onChange={handleInputChange}
                                                 />
                                             </Col>
-                                        </Row>
-                                        <Row className="mb-3">
+                                            <Col>
+                                            <Form.Select name="_class" value={user._class} onChange={handleInputChange}>
+                                                <option>--Class--</option>
+                                                <option>REG</option>
+                                                <option>SS</option>
+                                            </Form.Select>
+                                            </Col>
+                                            <Col>
+                                            <FacultyAdvisorDropdown selectedUser={user} handleInputChange={handleInputChange} />
+                                            </Col>
+                                            </Row>
+                                        
+                                        <Row className="mb-3 mt-5">
                                             <Col className="text-center">
                                                 <Button variant="primary" onClick={handleAddUser}>
                                                     Add Student
@@ -488,7 +514,9 @@ const StudentTable = ({ users, removeUser }) => (
                             <th>Regulation</th>
                             <th>From Year</th>
                             <th>To Year</th>
+                            <th>Class</th>
                             <th>Can_fill</th>
+                            <th>Filled</th>
                             {removeUser && <th>Action</th>}
                         </tr>
                     </thead>
@@ -501,7 +529,9 @@ const StudentTable = ({ users, removeUser }) => (
                                 <td>{user.regulation}</td>
                                 <td>{user.from_year}</td>
                                 <td>{user.to_year}</td>
+                                <td>{user._class}</td>
                                 <td>{user.can_fill}</td>
+                                <td>{user.filled}</td>
                                 {removeUser && (
                                     <td>
                                         <Button variant="danger" onClick={() => removeUser(index)}>

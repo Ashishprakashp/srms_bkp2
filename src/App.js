@@ -14,6 +14,7 @@ import StudentLogin from './components/StudentLogin.js';
 import StudentDashboard from './components/StudentDashboard.js';
 import StudentForm from './components/StudentForm.js';
 import StudentDetailsApproval from './components/StudentDetailsApproval.js';
+import ClassDetails from './components/ClassDetails.js';
 
 function App() {
   const services3 = [
@@ -35,6 +36,7 @@ function App() {
         <Route path='/admin-dashboard/course-mgmt/create-course' element={<CreateCourse/>}/>
         <Route path='/admin-dashboard/student-mgmt/create-login' element={<StudentLoginCr/>}/>
         <Route path='/student-details-approval' element={<StudentDetailsApproval />}/>
+        <Route path="/class-details" element={<ClassDetails />} />
 
         <Route path="/student-login" element={<StudentLogin/>}/>
         <Route path="/student-dashboard" element={<StudentDashboard services={services3}/>}/>

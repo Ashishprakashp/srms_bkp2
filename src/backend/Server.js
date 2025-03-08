@@ -810,6 +810,7 @@ app.get('/student/:studentId', async (req, res) => {
       from_year: student.from_year,
       to_year: student.to_year,
       can_fill: student.can_fill,
+      facultyAdvisor: student.facultyAdvisor
     });
   } catch (error) {
     console.error('Error fetching student details:', error);
@@ -892,6 +893,16 @@ app.post('/student-class/update-can-fill', async (req, res) => {
       success: false,
       message: error.message
     });
+  }
+});
+
+app.get('/faculty/advisors', async (req, res) => {
+  try {
+    const facultyAdvisors = await Faculty.find({ additional_role: 'Faculty Advisor' });
+    res.status(200).json(facultyAdvisors);
+  } catch (error) {
+    console.error('Error fetching faculty advisors:', error);
+    res.status(500).json({ message: 'Failed to fetch faculty advisors' });
   }
 });
 

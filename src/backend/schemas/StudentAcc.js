@@ -26,6 +26,10 @@ const StudentAccSchema = new mongoose.Schema({
         type: String,
         required: [true, 'Batch is required']
       } ,
+      _class:{
+        type: String,
+        required: [true, 'Class is required']
+      } ,
     password: {
         type: String,
         required: [true, 'Password is required'],
@@ -37,7 +41,15 @@ const StudentAccSchema = new mongoose.Schema({
       can_fill:{
         type: Number,
         required: [true, 'can_fill is required']
-      }
+      },
+      filled:{
+        type: Number,
+        required: [true, 'Filled is required']
+      },
+      facultyAdvisor: {
+        type: String,
+        required: [true, 'facultyAdvisor is required']
+      },
   });
 
   const StudentAcc = mongoose.model('StudentAcc', StudentAccSchema);

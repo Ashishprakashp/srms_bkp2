@@ -14,7 +14,7 @@ const Page1 = ({ formData, setFormData }) => {
           withCredentials: true,
         });
 
-        const { studentId: fetchedStudentId, branch, regulation, from_year, to_year } = response.data;
+        const { studentId: fetchedStudentId, branch, regulation, from_year, to_year ,facultyAdvisor} = response.data;
 
         setFormData((prevData) => ({
           ...prevData,
@@ -24,6 +24,7 @@ const Page1 = ({ formData, setFormData }) => {
             branch,
             regulation,
             batch: `${from_year}-${to_year}`,
+            facultyAdvisor:`${facultyAdvisor}`
           },
         }));
       } catch (error) {
@@ -308,12 +309,12 @@ const Page1 = ({ formData, setFormData }) => {
             <Col md={6}>
               <Form.Group>
                 <Form.Label style={{ color: 'black' }}>Faculty Advisor</Form.Label>
-                <Form.Select
-                  value={formData.personalInformation.fa}
-                  onChange={(e) => handleChange('personalInformation', 'fa', e.target.value)}
-                >
-                  <option value="None">None</option>
-                </Form.Select>
+                <Form.Control
+                  size="sm"
+                  type="text"
+                  value={formData.personalInformation.facultyAdvisor|| ''}
+                  readOnly
+                />
               </Form.Group>
             </Col>
           </Row>

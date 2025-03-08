@@ -15,9 +15,9 @@ const StudentDetailsApproval = () => {
     const verifyAuth = async () => {
       try {
         const response = await axios.get('http://localhost:5000/check-auth', {
-          withCredentials: true
+          withCredentials: true,
         });
-        
+
         if (!response.data.authenticated) {
           navigate('/');
         } else {
@@ -32,17 +32,18 @@ const StudentDetailsApproval = () => {
       try {
         const response = await axios.get('http://localhost:5000/student-class/all');
         const students = response.data;
-        
+
         // Group students by branch, regulation, from_year, to_year
         const groups = students.reduce((acc, student) => {
-          const key = `${student.branch}-${student.regulation}-${student.from_year}-${student.to_year}`;
+          const key = `${student.branch}-${student.regulation}-${student.from_year}-${student.to_year}-${student._class}`;
           if (!acc[key]) {
             acc[key] = {
               branch: student.branch,
               regulation: student.regulation,
               from_year: student.from_year,
               to_year: student.to_year,
-              students: []
+              _class: student._class,
+              students: [],
             };
           }
           acc[key].students.push(student);
@@ -66,13 +67,12 @@ const StudentDetailsApproval = () => {
         branch: group.branch,
         regulation: group.regulation,
         from_year: group.from_year,
-        to_year: group.to_year
+        to_year: group.to_year,
+        _class: group._class,
       });
-  
+
       if (response.data.success) {
         alert(`Enabled ${response.data.updatedCount} students!`);
-        // Optional: Refresh the data
-        
       } else {
         alert('Failed to enable students');
       }
@@ -81,6 +81,20 @@ const StudentDetailsApproval = () => {
       alert('Error enabling students');
     }
   };
+
+  const handleViewClassDetails = (group) => {
+    // Navigate to the new page with class details
+    navigate('/class-details', {
+      state: {
+        branch: group.branch,
+        regulation: group.regulation,
+        from_year: group.from_year,
+        to_year: group.to_year,
+        _class: group._class,
+      },
+    });
+  };
+
   if (loading) {
     return (
       <div className="d-flex justify-content-center align-items-center vh-100">
@@ -104,30 +118,35 @@ const StudentDetailsApproval = () => {
       <TitleBar />
       <div className="d-flex vh-100">
         <SideBar />
-        <div className='main-content-ad-dboard flex-grow-1' style={{ overflowY: 'auto' }}>
+        <div className="main-content-ad-dboard flex-grow-1" style={{ overflowY: 'auto' }}>
           <div className="p-4">
             <Button className="float-end px-4" onClick={() => navigate('/admin-dashboard/student-mgmt')}>
               Back
             </Button>
             <h1 className="mb-4">Student Classes</h1>
-            
+
             <Row xs={1} sm={2} md={3} className="g-4">
               {studentGroups.map((group, index) => (
                 <Col key={index}>
                   <Card className="card-bg">
                     <Card.Body>
-                      <Card.Title>{group.branch} - {group.regulation}</Card.Title>
+                      <Card.Title>
+                        {group.branch} - {group.regulation}
+                      </Card.Title>
                       <Card.Subtitle className="mb-2 text-muted">
                         Batch: {group.from_year} - {group.to_year}
+                        Class: {group._class}
                       </Card.Subtitle>
-                      <Card.Text>
-                        Total Students: {group.students.length}
-                      </Card.Text>
-                      <Button 
-                        variant="primary" 
-                        onClick={() => handleEnable(group)}
-                      >
+                      <Card.Text>Total Students: {group.students.length}</Card.Text>
+                      <Button variant="primary" onClick={() => handleEnable(group)}>
                         Enable
+                      </Button>
+                      <Button
+                        variant="secondary"
+                        className="mt-2"
+                        onClick={() => handleViewClassDetails(group)}
+                      >
+                        View Details
                       </Button>
                     </Card.Body>
                   </Card>
