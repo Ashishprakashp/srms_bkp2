@@ -46,6 +46,10 @@ const StudentAccSchema = new mongoose.Schema({
         type: Number,
         required: [true, 'Filled is required']
       },
+      approved:{
+        type: Number,
+        default: 0,
+      },
       facultyAdvisor: {
         type: String,
         required: [true, 'facultyAdvisor is required']

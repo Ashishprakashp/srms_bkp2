@@ -143,7 +143,7 @@ const StudentDetailsApproval = () => {
                       </Button>
                       <Button
                         variant="secondary"
-                        className="mt-2"
+                        className="ms-4"
                         onClick={() => handleViewClassDetails(group)}
                       >
                         View Details

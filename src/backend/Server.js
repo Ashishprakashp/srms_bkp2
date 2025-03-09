@@ -10,11 +10,19 @@ import MongoStore from 'connect-mongo';
 import cookieParser from 'cookie-parser';
 import Faculty from './schemas/Faculty.js';
 import StudentAcc from './schemas/StudentAcc.js';
+import StudentDetails from './schemas/StudentDetails.js';
 // import { uploadMiddleware, getFilePaths } from './utils/fileUpload.js';
 import Student from './schemas/Student.js';
 import multer from 'multer';
 import path from 'path';
 import fs from 'fs';
+import { fileURLToPath } from 'url';
+import { dirname, join } from 'path';
+
+
+// Get the directory name
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 
 dotenv.config();
 
@@ -50,7 +58,7 @@ app.use(
     }
   })
 );
-
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 mongoose.connect(process.env.MONGO_URI, { 
   useNewUrlParser: true, 
   useUnifiedTopology: true 
@@ -817,6 +825,21 @@ app.get("/student/fetch", async (req, res) => {
   }
 });
 
+// backend route (Express.js)
+app.get('/students-details/:studentId', async (req, res) => {
+  try {
+    console.log(req.params); // Log the params for debugging
+    const studentId = req.params.studentId; // Use the correct parameter name
+    const student = await Student.findOne({ 'personalInformation.register': studentId }); // Await the query
+    if (!student) {
+      return res.status(404).json({ message: 'Student not found' });
+    }
+    res.json(student);
+  } catch (error) {
+    console.error('Error fetching student details:', error);
+    res.status(500).json({ message: 'Error fetching student details' });
+  }
+});
 
 app.get('/student/:studentId', async (req, res) => {
   const { studentId } = req.params;
@@ -1055,7 +1078,98 @@ app.post("/student", uploadMiddleware, async (req, res) => {
   }
 });
 
+app.get('/file', (req, res) => {
+  const filePath = req.query.path; // Get the absolute path from the query parameter
 
+  if (!filePath) {
+    return res.status(400).json({ message: 'File path is required' });
+  }
+
+  // Validate that the file path is within the "uploads" directory
+  const uploadsDir = path.join(__dirname, 'uploads');
+  const resolvedPath = path.resolve(filePath);
+
+  if (!resolvedPath.startsWith(uploadsDir)) {
+    return res.status(403).json({ message: 'Access denied' });
+  }
+
+  // Check if the file exists
+  if (!fs.existsSync(resolvedPath)) {
+    return res.status(404).json({ message: 'File not found' });
+  }
+
+  // Send the file
+  res.sendFile(resolvedPath);
+});
+
+app.post('/move-files', async (req, res) => {
+  const { filePaths } = req.body; // Array of file paths to move
+
+  try {
+    // Ensure the approved-uploads directory exists
+    const approvedUploadsDir = path.join(__dirname, 'approved-uploads');
+    if (!fs.existsSync(approvedUploadsDir)) {
+      fs.mkdirSync(approvedUploadsDir, { recursive: true });
+    }
+
+    // Move each file
+    filePaths.forEach((filePath) => {
+      // Extract the relative path from the full filePath
+      const relativePath = path.relative(path.join(__dirname, 'uploads'), filePath);
+      
+      const sourcePath = filePath; // Use the full path directly
+      const destinationPath = path.join(__dirname, 'approved-uploads', relativePath);
+
+      // Ensure the destination directory exists
+      const destinationDir = path.dirname(destinationPath);
+      if (!fs.existsSync(destinationDir)) {
+        fs.mkdirSync(destinationDir, { recursive: true });
+      }
+
+      // Move the file
+      fs.renameSync(sourcePath, destinationPath);
+    });
+
+    res.json({ message: 'Files moved successfully' });
+  } catch (error) {
+    console.error('Error moving files:', error);
+    res.status(500).json({ message: 'Error moving files' });
+  }
+});
+
+app.post('/move-student', async (req, res) => {
+  const { registerNumber } = req.body; // Registration number of the student to move
+
+  try {
+    // Find the student in the original collection
+    const student = await Student.findOne({ "personalInformation.register": registerNumber });
+    
+
+    if (!student) {
+      return res.status(404).json({ message: 'Student not found' });
+    }
+
+    // Create a new document in the StudentDetails collection
+    const studentDetails = new StudentDetails({
+      personalInformation: student.personalInformation,
+      familyInformation: student.familyInformation,
+      education: student.education,
+      entranceAndWorkExperience: student.entranceAndWorkExperience,
+      acceptance: student.acceptance
+    });
+
+    // Save the document to the new collection
+    await studentDetails.save();
+    const result = await StudentAcc.updateOne(
+      { studentId: registerNumber },  // Filter
+      { $set: { approved: 1 } }  // Update
+    ).exec();
+    res.json({ message: 'Student details moved successfully' });
+  } catch (error) {
+    console.error('Error moving student:', error);
+    res.status(500).json({ message: 'Error moving student details' });
+  }
+});
 
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => console.log(`Server running on http://localhost:${PORT}`));
