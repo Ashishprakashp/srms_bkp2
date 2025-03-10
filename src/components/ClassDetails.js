@@ -424,7 +424,7 @@ const ClassDetails = () => {
   const [currentPageFilled, setCurrentPageFilled] = useState(1);
   const [currentPageUnfilled, setCurrentPageUnfilled] = useState(1);
   const [currentPageApproved, setCurrentPageApproved] = useState(1);
-  const [studentsPerPage] = useState(10);
+  const [studentsPerPage] = useState(5);
 
   useEffect(() => {
     const fetchStudents = async () => {
@@ -483,8 +483,8 @@ const ClassDetails = () => {
         registerNumber: selectedStudent.personalInformation.register
       });
 
-      // Update approval status
-      await axios.patch(`http://localhost:5000/students/${selectedStudent.studentId}/approve`, { approved: 1 });
+      // // Update approval status
+      // await axios.patch(`http://localhost:5000/students/${selectedStudent.studentId}/approve`, { approved: 1 });
       
       // Update local state
       setStudents(students.map(student => 
@@ -506,6 +506,7 @@ const ClassDetails = () => {
       const response = await axios.get(`http://localhost:5000/students-details/${student.studentId}`);
       setSelectedStudent(response.data);
       setShowModal(true);
+      console.log(student);
     } catch (error) {
       console.error('Error fetching student details:', error);
     }
@@ -541,9 +542,10 @@ const ClassDetails = () => {
         <SideBar />
     
         <div className="flex-grow-1 p-4" style={{ marginLeft: '20px', marginRight: '20px' }}>
-          <Button className="mb-4" onClick={() => navigate(-1)}>
-            Back
-          </Button>
+        <Button className="mb-4 float-end" onClick={() => navigate(-1)}>
+  Back
+</Button>
+
           <h1 className="mb-4">
             {branch} - {regulation} ({from_year} - {to_year}) {_class}
           </h1>
@@ -807,10 +809,10 @@ const ClassDetails = () => {
               <Button variant="secondary" onClick={() => setShowModal(false)}>
                 Close
               </Button>
-              <Button variant="primary" onClick={handleApprove}>
-                Approve
-              </Button>
-            </Modal.Footer>
+    <Button variant="primary" onClick={handleApprove}>
+      Approve
+    </Button>
+          </Modal.Footer>
           </Modal>
         </div>
       </div>

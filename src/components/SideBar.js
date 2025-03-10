@@ -17,7 +17,6 @@ const SideBar = ({ onLogoutClick }) => {
                     height: '100%',
                     position: 'sticky',
                     top: 0,
-                    overflowY: 'auto',
                 }}
             >
                 <div className="text-center mb-3">

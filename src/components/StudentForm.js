@@ -92,9 +92,10 @@ const StudentForm = () => {
         const response = await axios.get(`http://localhost:5000/student/${studentId}`, {
           withCredentials: true,
         });
-
+        console.log(response.data);
         const { 
           studentId: fetchedStudentId, 
+          name,
           branch, 
           regulation, 
           from_year, 
@@ -112,6 +113,7 @@ const StudentForm = () => {
             personalInformation: {
               ...prevData.personalInformation,
               register: fetchedStudentId,
+              name,
               branch,
               regulation,
               batch: `${from_year}-${to_year}`,
@@ -259,6 +261,7 @@ const StudentForm = () => {
       });
       console.log(response);
       alert('Application submitted successfully!');
+      navigate("/student-dashboard");
     } catch (error) {
       alert('Error saving student details: ' + error.message);
     }

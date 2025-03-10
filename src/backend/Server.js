@@ -32,7 +32,7 @@ const app = express();
 app.use(cors({
   origin: 'http://localhost:3000',
   credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE'],
+  methods: ['GET', 'POST', 'PUT', 'DELETE','PATCH'],
   allowedHeaders: ['Content-Type', 'Authorization']
 }));
 
@@ -556,6 +556,38 @@ app.post("/add-semester/:_id/:regulationYear", async (req, res) => {
   }
 });
 
+app.delete("/remove-semester/:courseId/:regulationYear/:semesterId", async (req, res) => {
+  const { courseId, regulationYear, semesterId } = req.params;
+
+  try {
+    const course = await Course.findById(courseId);
+    if (!course) {
+      return res.status(404).json({ error: "Course not found" });
+    }
+
+    const regulation = course.regulations.find(reg => reg.year === regulationYear);
+    if (!regulation) {
+      return res.status(404).json({ error: "Regulation not found" });
+    }
+
+    // Find the index of the semester
+    const semesterIndex = regulation.semesters.findIndex(sem => sem._id.toString() === semesterId);
+    if (semesterIndex === -1) {
+      return res.status(404).json({ error: "Semester not found" });
+    }
+
+    // Remove the semester using splice
+    regulation.semesters.splice(semesterIndex, 1);
+    regulation.semester_count = Math.max(0, regulation.semester_count - 1);
+
+    await course.save();
+    res.status(200).json({ message: "Semester removed successfully" });
+  } catch (error) {
+    console.error("Error:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
 app.post("/add-subject/:courseId/:regulationYear", async (req, res) => {
   const { courseId, regulationYear } = req.params; // courseId is the _id of the course, regulationYear is the year (e.g., "2023")
   const { sem_no, subject_code, subject_name, credits, subject_type } = req.body; // Subject details
@@ -854,6 +886,7 @@ app.get('/student/:studentId', async (req, res) => {
     // Return the required fields
     res.json({
       studentId: student.studentId,
+      name: student.name,
       branch: student.branch,
       regulation: student.regulation,
       from_year: student.from_year,

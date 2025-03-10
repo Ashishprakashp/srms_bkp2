@@ -4,6 +4,7 @@ import TitleBar from './TitleBar.js';
 import SideBar from './SideBar.js';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
+import './StudentDetailsApproval.css'; // Import the new CSS file
 
 const StudentDetailsApproval = () => {
   const navigate = useNavigate();
@@ -97,7 +98,7 @@ const StudentDetailsApproval = () => {
 
   if (loading) {
     return (
-      <div className="d-flex justify-content-center align-items-center vh-100">
+      <div className="student-approval-loading">
         <Spinner animation="border" role="status">
           <span className="visually-hidden">Loading...</span>
         </Spinner>
@@ -107,7 +108,7 @@ const StudentDetailsApproval = () => {
 
   if (error) {
     return (
-      <div className="d-flex justify-content-center align-items-center vh-100">
+      <div className="student-approval-error">
         <div className="alert alert-danger">{error}</div>
       </div>
     );
@@ -118,34 +119,30 @@ const StudentDetailsApproval = () => {
       <TitleBar />
       <div className="d-flex vh-100">
         <SideBar />
-        <div className="main-content-ad-dboard flex-grow-1" style={{ overflowY: 'auto' }}>
+        <div className="student-approval-content">
           <div className="p-4">
-            <Button className="float-end px-4" onClick={() => navigate('/admin-dashboard/student-mgmt')}>
+            <Button className="student-approval-back-btn" onClick={() => navigate('/admin-dashboard/student-mgmt')}>
               Back
             </Button>
-            <h1 className="mb-4">Student Classes</h1>
+            <h1 className="student-approval-title">Student Classes</h1>
 
             <Row xs={1} sm={2} md={3} className="g-4">
-              {studentGroups.map((group, index) => (
+              {studentGroups.map((group, index) => (  
                 <Col key={index}>
-                  <Card className="card-bg">
+                  <Card className="student-approval-card">
                     <Card.Body>
                       <Card.Title>
                         {group.branch} - {group.regulation}
                       </Card.Title>
-                      <Card.Subtitle className="mb-2 text-muted">
-                        Batch: {group.from_year} - {group.to_year}
+                      <Card.Subtitle className="student-approval-card-subtitle">
+                        Batch: {group.from_year} - {group.to_year} <br />
                         Class: {group._class}
                       </Card.Subtitle>
                       <Card.Text>Total Students: {group.students.length}</Card.Text>
                       <Button variant="primary" onClick={() => handleEnable(group)}>
                         Enable
                       </Button>
-                      <Button
-                        variant="secondary"
-                        className="ms-4"
-                        onClick={() => handleViewClassDetails(group)}
-                      >
+                      <Button variant="secondary" className="ms-4" onClick={() => handleViewClassDetails(group)}>
                         View Details
                       </Button>
                     </Card.Body>

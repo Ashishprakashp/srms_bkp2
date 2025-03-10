@@ -1,0 +1,76 @@
+/* Container Styling */
+.student-approval-container {
+    display: flex;
+    height: 100vh;
+  }
+  
+  .student-approval-content {
+    flex-grow: 1;
+    padding: 20px;
+    overflow-y: auto;
+    background-color: #e3eeff;
+    animation: fadeInFromBottom 0.8s ease-out forwards;
+  }
+  
+  /* Loading and Error Styles */
+  .student-approval-loading, .student-approval-error {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+  }
+  
+  /* Button Styles */
+  .student-approval-back-btn {
+    float: right;
+    padding: 8px 20px;
+    font-weight: 500;
+  }
+  
+  /* Card Styling */
+  .student-approval-card {
+    height: 220px;
+    border: none;
+    border-radius: 15px;
+    transition: transform 0.2s;
+    box-shadow: 5px 5px 10px #9ac2ff;
+    position: relative;
+    cursor: pointer;
+    overflow: hidden;
+  }
+  
+  .student-approval-card:hover {
+    transform: translateY(-5px);
+  }
+  
+  /* Card Title and Text Styling */
+  .student-approval-card-title {
+    font-size: 1.5rem;
+    font-weight: 600;
+  }
+  
+  .student-approval-card-subtitle {
+    font-size: 1rem;
+    color: #6c757d;
+  }
+  
+  /* Fade-In Animation */
+  @keyframes fadeInFromBottom {
+    0% {
+      opacity: 0;
+      transform: translateY(20px);
+    }
+    100% {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+ 
+  
+  /* Responsive Design */
+  @media (max-width: 768px) {
+    .student-approval-back-btn {
+      width: 100%;
+    }
+  }
+      

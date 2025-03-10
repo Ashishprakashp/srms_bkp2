@@ -131,6 +131,20 @@
           </Col>
         </Row>
 
+        <Row>
+        <Col md={4} className='mb-4'>
+                <Form.Group>
+                  <Form.Label style={{ color: 'black' }}>Name</Form.Label>
+                  <Form.Control
+                    size="sm"
+                    type="text"
+                    value={formData.personalInformation.name|| ''}
+                    readOnly
+                  />
+                </Form.Group>
+              </Col>
+        </Row>
+
         {/*personal contact details*/ }
         <Row className="mb-5">
         <Col md={4}>

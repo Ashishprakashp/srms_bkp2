@@ -39,27 +39,38 @@ const CourseSpec = () => {
   }, [courseId, regulationYear]);
 
   // Handle adding a new semester
-  const handleAddSemester = async () => {
-    try {
-      const newSemester = {
-        code: `SEM-${semesters.length + 1}`,
-        sem_no: semesters.length + 1,
-        subjects: [], // Initialize with an empty array of subjects
+  // Handle adding a new semester
+const handleAddSemester = async () => {
+  try {
+    const newSemester = {
+      code: `SEM-${semesters.length + 1}`,
+      sem_no: semesters.length + 1,
+      subjects: [],
+    };
+
+    const response = await axios.post(
+      `http://localhost:5000/add-semester/${courseId}/${regulationYear}`,
+      newSemester
+    );
+
+    if (response.status === 200) {
+      // Refresh the semester list after successful addition
+      const fetchData = async () => {
+        try {
+          const response = await axios.get(
+            `http://localhost:5000/fetch-semesters/${courseId}/${regulationYear}`
+          );
+          setSemesters(response.data);
+        } catch (error) {
+          console.error("Error fetching data:", error);
+        }
       };
-      console.log(courseId+" "+regulationYear);
-      const response = await axios.post(
-        `http://localhost:5000/add-semester/${courseId}/${regulationYear}`,
-        newSemester
-      );
-
-      if (response.status === 200) {
-        setSemesters([...semesters, response.data]);
-      }
-    } catch (error) {
-      console.error("Error adding semester:", error);
+      await fetchData();
     }
-  };
-
+  } catch (error) {
+    console.error("Error adding semester:", error);
+  }
+};
   // Handle adding a new subject
   const handleAddSubject = async (e) => {
     e.preventDefault();
@@ -142,6 +153,22 @@ const CourseSpec = () => {
     }
   };
 
+  // Handle removing a semester
+// Handle removing a semester
+const handleRemoveSemester = async (semesterId) => {
+  try {
+    const response = await axios.delete(
+      `http://localhost:5000/remove-semester/${courseId}/${regulationYear}/${semesterId}`
+    );
+
+    if (response.status === 200) {
+      setSemesters(semesters.filter((sem) => sem._id !== semesterId));
+    }
+  } catch (error) {
+    console.error("Error removing semester:", error);
+  }
+};   
+
   if (loading) {
     return <div>Loading...</div>;
   }
@@ -161,18 +188,28 @@ const CourseSpec = () => {
             {/* Semester Cards */}
             {semesters.map((semester) => (
               <Card key={semester._id}>
-                <Card.Header className="d-flex justify-content-between align-items-center">
-                  <h4>Semester {semester.sem_no} - {semester.code}</h4>
+              <Card.Header className="d-flex justify-content-between align-items-center">
+                <h4>Semester {semester.sem_no} - {semester.code}</h4>
+                <div>
                   <Button
                     size="sm"
                     onClick={() => {
                       setNewSubject({ ...newSubject, sem_no: semester.sem_no });
                       setShowAddSubjectModal(true);
                     }}
+                    className="me-2"
                   >
                     Add Subject
                   </Button>
-                </Card.Header>
+                  <Button
+                    variant="danger"
+                    size="sm"
+                    onClick={() => handleRemoveSemester(semester._id)}
+                  >
+                    Remove Semester
+                  </Button>
+                </div>
+              </Card.Header>
                 <Card.Body>
                   <Table striped bordered hover>
                     <thead>
