@@ -43,6 +43,7 @@ const Page3 = ({ formData, setFormData }) => {
         [field]: value
       }
     }));
+    
   };
 
   const handleFileUpload = (field, file) => {
@@ -146,9 +147,9 @@ const Page3 = ({ formData, setFormData }) => {
           </Form.Group>
         </Col>
         <Col md={12} className="mt-3">
-          {formData.education.xMarksheet?.url && (
+          {formData.education.xMarksheet && (
             <div>
-              <a href={formData.education.xMarksheet.url} target="_blank" rel="noopener noreferrer" className="me-3">
+              <a href={`http://localhost:5000/${formData.education.xMarksheet}`} target="_blank" rel="noopener noreferrer" className="me-3">
                 View X Marksheet
               </a>
               <span className="text-muted">{formData.education.xMarksheet.name}</span>
@@ -235,9 +236,9 @@ const Page3 = ({ formData, setFormData }) => {
           </Form.Group>
         </Col>
         <Col md={12} className="mt-3">
-          {formData.education.xiiMarksheet?.url && (
+          {formData.education.xiiMarksheet && (
             <div>
-              <a href={formData.education.xiiMarksheet.url} target="_blank" rel="noopener noreferrer" className="me-3">
+              <a href={`http://localhost:5000/${formData.education.xiiMarksheet}`} target="_blank" rel="noopener noreferrer" className="me-3">
                 View XII Marksheet
               </a>
               <span className="text-muted">{formData.education.xiiMarksheet.name}</span>
@@ -299,9 +300,9 @@ const Page3 = ({ formData, setFormData }) => {
           </Form.Group>
         </Col>
         <Col md={12} className="mt-3">
-          {formData.education.ugProvisionalCertificate?.url && (
+          {formData.education.ugProvisionalCertificate && (
             <div>
-              <a href={formData.education.ugProvisionalCertificate.url} target="_blank" rel="noopener noreferrer" className="me-3">
+              <a href={`http://localhost:5000/${formData.education.ugProvisionalCertificate}`} target="_blank" rel="noopener noreferrer" className="me-3">
                 View UG Provisional Certificate
               </a>
               <span className="text-muted">{formData.education.ugProvisionalCertificate.name}</span>

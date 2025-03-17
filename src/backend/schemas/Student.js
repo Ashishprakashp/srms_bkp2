@@ -13,7 +13,7 @@ const StudentSchema = new mongoose.Schema({
     splcategory: { type: String, enum: ['None', 'Ph', 'Sports', 'Ex-Service man', 'NRI', 'Other States', 'Any Other'], default: 'None' },
     scholarship: { type: String, default: '' },
     volunteer: { type: String, enum: ['None', 'NSS', 'NSO', 'YRC'], default: 'None' },
-    contact: { type: String, default: '' },
+    mobile: { type: String, default: '' },
     mail: { type: String, default: '' },
     fa: { type: String, default: 'None' },
     passportPhoto: { type: String, default: '' }, // File path for passport photo
@@ -40,17 +40,17 @@ const StudentSchema = new mongoose.Schema({
 
   // Education Details
   education: {
-    ug: { type: String, enum: ['BE', 'Btech', 'Bsc', 'BCA', ''], default: '' },
+    ug: { type: String, default: '' },
     ugCollege: { type: String, default: '' },
     ugYear: { type: Number, default: null },
     ugPercentage: { type: Number, default: null },
     ugProvisionalCertificate: { type: String, default: '' }, // File path for UG certificate
-    xiiBoard: { type: String, enum: ['CBSE', 'State-Board', 'ICSE', 'Other'], default: '' },
+    xiiBoard: { type: String, default: '' },
     xiiSchool: { type: String, default: '' },
     xiiYear: { type: Number, default: null },
     xiiPercentage: { type: Number, default: null },
     xiiMarksheet: { type: String, default: '' }, // File path for XII marksheet
-    xBoard: { type: String, enum: ['CBSE', 'State-Board', 'ICSE', 'Other'], default: '' },
+    xBoard: { type: String, default: '' },
     xSchool: { type: String, default: '' },
     xYear: { type: Number, default: null },
     xPercentage: { type: Number, default: null },
@@ -59,7 +59,7 @@ const StudentSchema = new mongoose.Schema({
 
   // Entrance and Work Experience
   entranceAndWorkExperience: {
-    entrance: { type: String, enum: ['TANCET', 'GATE', ''], default: '' },
+    entrance: { type: String, default: '' },
     entranceRegister: { type: String, default: '' },
     entranceScore: { type: Number, default: null },
     entranceYear: { type: Number, default: null },

@@ -18,6 +18,7 @@ import path from 'path';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
+import { Await } from 'react-router-dom';
 
 
 // Get the directory name
@@ -58,6 +59,7 @@ app.use(
     }
   })
 );
+
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 mongoose.connect(process.env.MONGO_URI, { 
   useNewUrlParser: true, 
@@ -811,9 +813,9 @@ app.post('/studentlogin', async (req, res) => {
 const setFilled = async (studentId) => {
   try {
     const student = await StudentAcc.findOneAndUpdate(
-      { studentId },
-      { filled: 1 },
-      { new: true }
+      { studentId },                // Filter condition
+      { $set: { filled: 1, can_fill: 0 } }, // Update fields
+      { new: true }                 // Options (return updated document)
     );
 
     if (!student) {
@@ -825,6 +827,7 @@ const setFilled = async (studentId) => {
     throw new Error(error.message);
   }
 };
+
 
 
 app.get("/student/fetch", async (req, res) => {
@@ -1036,7 +1039,7 @@ app.post("/student", uploadMiddleware, async (req, res) => {
     console.log(`Branch: ${branch}, Regulation: ${regulation}, Batch: ${batch}, Register: ${register}`);
 
     // Define the correct upload path
-    const uploadPath = path.join(process.cwd(), "uploads", branch, regulation, batch, register);
+    const uploadPath = path.join("uploads", branch, regulation, batch, register);
     
     // Ensure directory exists
     fs.mkdirSync(uploadPath, { recursive: true });
@@ -1050,6 +1053,7 @@ app.post("/student", uploadMiddleware, async (req, res) => {
       const filePath = path.join(uploadPath, filename);
 
       // Write file to disk
+      
       await fs.promises.writeFile(filePath, file.buffer);
       return filePath;
     };
@@ -1093,15 +1097,29 @@ app.post("/student", uploadMiddleware, async (req, res) => {
         })),
       },
     };
-
     
     console.log("Saving student data...");
-    const student = new Student(completeData);
-    await student.save();
-    const status_update = await setFilled(student.personalInformation.register);
-    console.log("Student data saved successfully!");
-
-    res.status(201).json({ message: "Student data saved and status updated ", student });
+    
+    // Check if the student already exists
+    const existingStudent = await Student.findOne({ "personalInformation.register": register });
+    
+    if (existingStudent) {
+      // Update the existing student record
+      Object.assign(existingStudent, completeData); // Merge new data into the existing record
+      await existingStudent.save(); // Save the updated record
+      console.log("Student data updated successfully!");
+    } else {
+      // Create a new student record
+      const student = new Student(completeData);
+      await student.save();
+      
+      console.log("Student data saved successfully!");
+      
+    }
+    const status_update = await setFilled(register);
+      console.log(status_update);
+    
+    res.status(201).json({ message: "Student data saved/updated successfully!", student: existingStudent || student });
   } catch (error) {
     console.error("Error processing request:", error);
     res.status(400).json({
@@ -1203,6 +1221,213 @@ app.post('/move-student', async (req, res) => {
     res.status(500).json({ message: 'Error moving student details' });
   }
 });
+
+app.post('/save-page-data', uploadMiddleware, async (req, res) => {
+  try {
+    console.log("Received request:", req.body);
+
+    // Ensure form data is present
+    if (!req.body.data) {
+      return res.status(400).json({ error: "Missing student data in request" });
+    }
+
+    // Parse JSON data
+    const pageData = JSON.parse(req.body.data);
+    const { fields } = pageData;
+
+    // Extract necessary fields for directory structure
+    const { branch = "default", regulation = "default", batch = "default", register = "default" } = fields;
+
+    console.log(`Branch: ${branch}, Regulation: ${regulation}, Batch: ${batch}, Register: ${register}`);
+
+    // Define the correct upload path
+    const uploadPath = path.join("uploads", branch, regulation, batch, register);
+
+    // Ensure directory exists
+    fs.mkdirSync(uploadPath, { recursive: true });
+
+    // Save files from memory to disk
+    const saveFile = async (file, fieldname, index = 0) => {
+      if (!file) {
+        console.warn(`No file provided for ${fieldname}`);
+        return null;
+      }
+
+      const ext = path.extname(file.originalname);
+      const filename = `${register}_${fieldname}${index > 0 ? `_${index}` : ""}${ext}`;
+      const relativeFilePath = path.join("uploads", branch, regulation, batch, register, filename); // Relative path
+      const absoluteFilePath = path.join(process.cwd(), relativeFilePath); // Absolute path
+
+      // Write file to disk
+      await fs.promises.writeFile(absoluteFilePath, file.buffer);
+      console.log(`File saved: ${relativeFilePath}`);
+      return relativeFilePath; // Return relative path
+    };
+
+    // Process uploaded files
+    const movedFilePaths = {};
+
+    if (req.files) {
+      console.log("Uploaded files:", req.files);
+
+      // Save passport photo (if present)
+      if (pageData.personalInformation && req.files.passportPhoto && req.files.passportPhoto[0]) {
+        movedFilePaths.passportPhoto = await saveFile(req.files.passportPhoto[0], "passportPhoto");
+      }
+
+      // Save education-related files ONLY if education data is present in the request
+      if (pageData.education) {
+        if (req.files.xMarksheet && req.files.xMarksheet[0]) {
+          movedFilePaths.xMarksheet = await saveFile(req.files.xMarksheet[0], "xMarksheet");
+        }
+        if (req.files.xiiMarksheet && req.files.xiiMarksheet[0]) {
+          movedFilePaths.xiiMarksheet = await saveFile(req.files.xiiMarksheet[0], "xiiMarksheet");
+        }
+        if (req.files.ugProvisionalCertificate && req.files.ugProvisionalCertificate[0]) {
+          movedFilePaths.ugProvisionalCertificate = await saveFile(req.files.ugProvisionalCertificate[0], "ugProvisionalCertificate");
+        }
+      }
+
+      // Save entrance and work experience files ONLY if data is present in the request
+      if (pageData.entranceAndWorkExperience) {
+        if (req.files.scorecard && req.files.scorecard[0]) {
+          movedFilePaths.scorecard = await saveFile(req.files.scorecard[0], "scorecard");
+        }
+        if (req.files.certificates) {
+          movedFilePaths.certificates = await Promise.all(
+            req.files.certificates.map((file, index) => saveFile(file, "certificate", index))
+          );
+        }
+      }
+    }
+
+    // Merge file paths into page data
+    const completeData = {
+      ...pageData,
+      personalInformation: pageData.personalInformation
+        ? {
+            ...pageData.personalInformation,
+            passportPhoto: movedFilePaths.passportPhoto || pageData.personalInformation.passportPhoto || "",
+          }
+        : undefined,
+      education: pageData.education
+        ? {
+            ...pageData.education,
+            xMarksheet: movedFilePaths.xMarksheet || pageData.education.xMarksheet || "",
+            xiiMarksheet: movedFilePaths.xiiMarksheet || pageData.education.xiiMarksheet || "",
+            ugProvisionalCertificate: movedFilePaths.ugProvisionalCertificate || pageData.education.ugProvisionalCertificate || "",
+          }
+        : undefined,
+      entranceAndWorkExperience: pageData.entranceAndWorkExperience
+        ? {
+            ...pageData.entranceAndWorkExperience,
+            scorecard: movedFilePaths.scorecard || pageData.entranceAndWorkExperience.scorecard || "",
+            workExperience: pageData.entranceAndWorkExperience.workExperience
+              ? pageData.entranceAndWorkExperience.workExperience.map((exp, index) => ({
+                  ...exp,
+                  certificate: movedFilePaths.certificates?.[index] || exp.certificate || "",
+                }))
+              : [],
+          }
+        : undefined,
+    };
+
+    // Save page data to the database
+    console.log("Saving page data...");
+
+    // Find the existing student record
+    const student = await Student.findOne({ "personalInformation.register": register });
+    console.log("1");
+    if (student) {
+      // Merge incoming data with existing data
+      if (completeData.personalInformation) {
+        student.personalInformation = {
+          ...student.personalInformation,
+          ...completeData.personalInformation,
+        };
+      }
+      if (completeData.familyInformation) {
+        student.familyInformation = {
+          ...student.familyInformation,
+          ...completeData.familyInformation,
+        };
+      }
+      if (completeData.education) {
+        student.education = {
+          ...student.education,
+          ...completeData.education,
+        };
+      }
+      if (completeData.entranceAndWorkExperience) {
+        student.entranceAndWorkExperience = {
+          ...student.entranceAndWorkExperience,
+          ...completeData.entranceAndWorkExperience,
+        };
+      }
+
+      // Save the updated student record
+      await student.save();
+      console.log("2");
+    } else {
+      // Create a new student record if it doesn't exist
+      const newStudent = new Student(completeData);
+      await newStudent.save();
+    }
+
+    console.log("Page data saved successfully!");
+    console.log("3");
+    res.status(200).json({ message: "Page data saved successfully!" });
+    console.log("4");
+  } catch (error) {
+    console.error("Error processing request:", error);
+    res.status(400).json({
+      error: error.message,
+      stack: error.stack,
+    });
+  }
+});
+
+app.post('/enable-student',async(req,res)=>{
+  try{
+    const {register} = req.body;
+    const response = await StudentAcc.updateOne({studentId:register},{$set:{can_fill:1,filled:0}});
+    res.status(200).json({ message: "Student enabled successfully!"});
+  }catch(error){
+    console.error("Error processing request:", error);
+    res.status(400).json({
+      error: error.message,
+      stack: error.stack,
+    });
+  }
+});
+
+app.post('/disable-student',async(req,res)=>{
+  try{
+    const {register} = req.body;
+    const response = await StudentAcc.updateOne({studentId:register},{$set:{can_fill:0,filled:0}});
+    res.status(200).json({ message: "Student disabled successfully!"});
+  }catch(error){
+    console.error("Error processing request:", error);
+    res.status(400).json({
+      error: error.message,
+      stack: error.stack,
+    });
+  }
+});
+
+app.post('/reject-student-details',async(req,res)=>{
+  try{
+    const {register,reason} = req.body;
+    const response = await StudentAcc.updateOne({studentId:register},{$set:{can_fill:1,filled:0,refill:1,reason:reason}});
+    res.status(200).json({ message: "Student rejected successfully!"});
+  }catch(error){
+    console.error("Error processing request:", error);
+    res.status(400).json({
+      error: error.message,
+      stack: error.stack,
+    });
+  }
+})
 
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => console.log(`Server running on http://localhost:${PORT}`));

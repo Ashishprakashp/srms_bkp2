@@ -193,7 +193,7 @@ const Page4 = ({ formData, setFormData }) => {
           </Col>
           <Col md={12} className="mt-3">
             {formData.entranceAndWorkExperience.scorecard && (
-              <a href={formData.entranceAndWorkExperience.scorecard} target="_blank" rel="noopener noreferrer">
+              <a href={`http://localhost:5000/${formData.entranceAndWorkExperience.scorecard}`} target="_blank" rel="noopener noreferrer">
                 View Scorecard
               </a>
             )}

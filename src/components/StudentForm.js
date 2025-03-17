@@ -37,7 +37,6 @@ const StudentForm = () => {
       passportPhoto: '',
       passportPhotoFile: null, // Added to store the file object
       mobile: '',
-      personalEmail: '',
     },
     familyInformation: {
       fatherName: '',
@@ -100,7 +99,8 @@ const StudentForm = () => {
           regulation, 
           from_year, 
           to_year,
-          can_fill 
+          can_fill ,
+          facultyAdvisor
         } = response.data;
         console.log(response.data);
         // Check if form submission is allowed
@@ -117,14 +117,27 @@ const StudentForm = () => {
               branch,
               regulation,
               batch: `${from_year}-${to_year}`,
+              fa:facultyAdvisor
             },
           }));
         }
 
+        const response2 = await axios.get(`http://localhost:5000/students-details/${studentId}`, {
+          withCredentials: true,
+        });
+        console.log("Existing student details: "+JSON.stringify(response2));
+        setFormData((prevData) => ({
+          ...prevData,
+          ...response2.data, // Merge response2.data into formData
+        }));
+        console.log("ug certificate:");
+        console.log(`http://localhost:5000${response2.data.education.ugProvisionalCertificate}`);
+        
       } catch (error) {
         console.error('Error fetching student details:', error);
       } finally {
         setLoading(false);
+        
       }
     };
 
@@ -143,7 +156,6 @@ const StudentForm = () => {
       personalInformation.sex &&
       personalInformation.blood !== '--' &&
       personalInformation.community !== '--' &&
-      personalInformation.contact &&
       personalInformation.mail &&
       personalInformation.mobile &&
       personalInformation.passportPhoto
@@ -214,6 +226,8 @@ const StudentForm = () => {
     }
   };
 
+
+
   const handleSubmit = async () => {
     if (!validatePage5(formData)) {
       alert('You must accept the declaration by checking the checkbox before submitting the application.');
@@ -261,9 +275,126 @@ const StudentForm = () => {
       });
       console.log(response);
       alert('Application submitted successfully!');
-      navigate("/student-dashboard");
+      window.location.reload();
+      // navigate("/student-dashboard");
     } catch (error) {
       alert('Error saving student details: ' + error.message);
+    }
+  };
+
+  const savePageData = async () => {
+    let pageData = {};
+  
+    // Extract data for the current page
+    switch (currentPage) {
+      case 1:
+        pageData = { personalInformation: formData.personalInformation ,
+          fields: {
+            branch: formData.personalInformation.branch,
+            regulation: formData.personalInformation.regulation,
+            batch: formData.personalInformation.batch,
+            register: formData.personalInformation.register,
+          },
+        };
+        break;
+      case 2:
+        pageData = {
+          familyInformation: formData.familyInformation,
+          fields: {
+            branch: formData.personalInformation.branch,
+            regulation: formData.personalInformation.regulation,
+            batch: formData.personalInformation.batch,
+            register: formData.personalInformation.register,
+          },
+        };
+        break;
+      case 3:
+        pageData = {
+          education: formData.education,
+          fields: {
+            branch: formData.personalInformation.branch,
+            regulation: formData.personalInformation.regulation,
+            batch: formData.personalInformation.batch,
+            register: formData.personalInformation.register,
+          },
+        };
+        break;
+      case 4:
+        pageData = {
+          entranceAndWorkExperience: formData.entranceAndWorkExperience,
+          fields: {
+            branch: formData.personalInformation.branch,
+            regulation: formData.personalInformation.regulation,
+            batch: formData.personalInformation.batch,
+            register: formData.personalInformation.register,
+          },
+        };
+        break;
+      case 5:
+        pageData = {
+          acceptance: formData.acceptance,
+          fields: {
+            branch: formData.personalInformation.branch,
+            regulation: formData.personalInformation.regulation,
+            batch: formData.personalInformation.batch,
+            register: formData.personalInformation.register,
+          },
+        };
+        break;
+      default:
+        break;
+    }
+  
+  
+    // Prepare FormData for file uploads
+    const formDataToSend = new FormData();
+  
+    // Append files if they exist
+    const appendFile = (fieldName, file) => {
+      if (file instanceof File) {
+        formDataToSend.append(fieldName, file);
+      }
+    };
+  
+    // Append files based on the current page
+    switch (currentPage) {
+      case 1:
+        appendFile('passportPhoto', formData.personalInformation.passportPhotoFile);
+        break;
+      case 3:
+        appendFile('xMarksheet', formData.education.xMarksheetFile);
+        appendFile('xiiMarksheet', formData.education.xiiMarksheetFile);
+        appendFile('ugProvisionalCertificate', formData.education.ugProvisionalCertificateFile);
+        break;
+      case 4:
+        appendFile('scorecard', formData.entranceAndWorkExperience.scorecardFile);
+        formData.entranceAndWorkExperience.workExperience.forEach((exp, index) => {
+          appendFile(`certificates`, exp.certificateFile);
+        });
+        break;
+      default:
+        break;
+    }
+  
+    // Append the page data as JSON
+    formDataToSend.append('data', JSON.stringify(pageData));
+  
+    try {
+      const response = await axios.post('http://localhost:5000/save-page-data', formDataToSend, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+        withCredentials: true,
+      });
+  
+      if (response.status === 200) {
+        alert('Page data saved successfully!');
+      } else {
+        alert('Failed to save page data. Please try again.');
+      }
+    } catch (error) {
+      console.error('Error saving page data:', error);
+      alert('An error occurred while saving page data. Please try again.');
     }
   };
 
@@ -364,7 +495,7 @@ const StudentForm = () => {
             <Row className="mb-4">
               <Col>
                 <Nav className="justify-content-center flex-wrap">
-                  {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+                  {/* {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
                     <Nav.Item key={page} className="mb-2">
                       <Button
                         variant={currentPage === page ? 'primary' : 'outline-primary'}
@@ -374,7 +505,57 @@ const StudentForm = () => {
                         Page {page}
                       </Button>
                     </Nav.Item>
-                  ))}
+                  ))} */}
+                  <Nav.Item className="mb-2">
+  <Button
+    variant={currentPage === 1 ? 'primary' : 'outline-primary'}
+    className="mx-1"
+    onClick={() => handlePageNavigation(1)}
+  >
+    Personal details
+  </Button>
+</Nav.Item>
+
+<Nav.Item className="mb-2">
+  <Button
+    variant={currentPage === 2 ? 'primary' : 'outline-primary'}
+    className="mx-1"
+    onClick={() => handlePageNavigation(2)}
+  >
+    Parent's details
+  </Button>
+</Nav.Item>
+
+<Nav.Item className="mb-2">
+  <Button
+    variant={currentPage === 3 ? 'primary' : 'outline-primary'}
+    className="mx-1"
+    onClick={() => handlePageNavigation(3)}
+  >
+    Education details
+  </Button>
+</Nav.Item>
+
+<Nav.Item className="mb-2">
+  <Button
+    variant={currentPage === 4 ? 'primary' : 'outline-primary'}
+    className="mx-1"
+    onClick={() => handlePageNavigation(4)}
+  >
+    Entrance & Experience
+  </Button>
+</Nav.Item>
+
+<Nav.Item className="mb-2">
+  <Button
+    variant={currentPage === 5 ? 'primary' : 'outline-primary'}
+    className="mx-1"
+    onClick={() => handlePageNavigation(5)}
+  >
+    Acceptance
+  </Button>
+</Nav.Item>
+
                 </Nav>
               </Col>
             </Row>
@@ -395,9 +576,15 @@ const StudentForm = () => {
                   </Col>
                   <Col className="text-end">
                     {currentPage < totalPages ? (
+                      <>
+                      <Button className="me-5" onClick={savePageData}>
+  Save
+</Button>
                       <Button variant="primary" onClick={handleNext}>
                         Next
                       </Button>
+                      
+                      </>
                     ) : (
                       <Button variant="success" onClick={handleSubmit}>
                         Submit Application

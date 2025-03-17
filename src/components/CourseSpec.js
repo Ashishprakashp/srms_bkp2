@@ -4,6 +4,7 @@ import axios from "axios";
 import { Button, Card, Modal, Form, Table } from "react-bootstrap";
 import TitleBar from "./TitleBar.js";
 import SideBar from "./SideBar.js";
+import SideBar2 from "./SideBar2.js";
 
 const CourseSpec = () => {
   const { courseId, regulationYear } = useParams();
@@ -177,8 +178,12 @@ const handleRemoveSemester = async (semesterId) => {
     <div>
       <TitleBar />
       <div className="d-flex vh-100">
-        <SideBar />
-        <div className="p-4 w-100">
+        <SideBar2 />
+        <div 
+  className="p-4 w-100" 
+  style={{ marginLeft: "250px", padding: "20px" }}
+>
+
           <h1>Manage Courses for Regulation {regulationYear}</h1>
           <Button onClick={() => navigate(-1)} className="mb-4">
             Back
@@ -307,9 +312,11 @@ const handleRemoveSemester = async (semesterId) => {
                 required
               >
                 <option value="">Select Type</option>
-                <option value="Core">Core</option>
-                <option value="Elective">Elective</option>
-                <option value="Lab">Lab</option>
+                <option value="FC">FC</option>
+                <option value="RMC">RMC</option>
+                <option value="PCC">PCC</option>
+                <option value="PEC">PEC</option>
+                <option value="EEC">EEC</option>
               </Form.Select>
             </Form.Group>
             <Button variant="primary" type="submit">

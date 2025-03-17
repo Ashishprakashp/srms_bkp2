@@ -1,0 +1,13 @@
+/* Add custom styles here */
+.accordion-toggle {
+    cursor: pointer;
+  }
+  .accordion-toggle:hover {
+    background-color: #f8f9fa;
+  }
+
+  .blurred-modal {
+    filter: blur(5px);
+    pointer-events: none;
+  }
+  

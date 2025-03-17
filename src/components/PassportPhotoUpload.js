@@ -1,34 +1,48 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useDropzone } from "react-dropzone";
 import { Card, Alert } from "react-bootstrap";
 
-const PassportPhotoUpload = ({ onImageUpload, uploadedImage }) => {
+const PassportPhotoUpload = ({ onImageUpload, uploadedImage, path }) => {
+  const [preview, setPreview] = useState(uploadedImage || "");
   const [error, setError] = useState("");
+
+  useEffect(() => {
+    setPreview(uploadedImage || (path ? `http://localhost:5000/${path}` : ""));
+  }, [uploadedImage, path]);
 
   const onDrop = (acceptedFiles) => {
     const file = acceptedFiles[0];
     if (file) {
-      // Pass the File object directly to parent
-      onImageUpload(file);
+      const allowedTypes = ["image/jpeg", "image/png"];
+      if (!allowedTypes.includes(file.type)) {
+        setError("Invalid file type. Only JPEG and PNG files are allowed.");
+        return;
+      }
+      if (file.size > 2 * 1024 * 1024) {
+        setError("File size exceeds the limit of 2MB.");
+        return;
+      }
+
+      setError(""); // Clear any previous errors
+      const imageUrl = URL.createObjectURL(file); // Create preview URL
+      setPreview(imageUrl); // Set preview image
+      onImageUpload(file); // Pass the file to parent
     }
   };
 
   const { getRootProps, getInputProps, open } = useDropzone({
     onDrop,
     accept: "image/*",
-    maxSize: 2 * 1024 * 1024,
+    maxSize: 2 * 1024 * 1024, // 2MB limit
     multiple: false,
-    noClick: true
+    noClick: true,
   });
 
   return (
-    <Card style={{ width: '200px', height: '250px', marginLeft: 'auto' }}>
+    <Card style={{ width: "200px", height: "250px", marginLeft: "auto" }}>
       <Card.Body>
-        {/* ... existing preview code ... */}
-        <Card.Title>Photo</Card.Title>
-
         {/* Dropzone Area */}
-        {!uploadedImage && (
+        {!preview && (
           <div
             {...getRootProps()}
             style={{
@@ -42,29 +56,38 @@ const PassportPhotoUpload = ({ onImageUpload, uploadedImage }) => {
               alignItems: "center",
               justifyContent: "center",
             }}
-            onClick={open} // Manually trigger file dialog on click
+            onClick={open}
           >
             <input {...getInputProps()} />
             <p className="text-muted">
-              Drag & drop a photo here, or click to select a file (JPEG or PNG, max 2MB).
+              Drag & drop or click to select photo (JPEG or PNG, max 2MB).
             </p>
           </div>
         )}
 
         {/* Image Preview */}
-        {uploadedImage && (
+        {preview && (
           <div
-            style={{ textAlign: "center", height: "200px", overflow: "hidden", marginTop: "1rem" }}
-            onClick={open} // Click on the preview to open file dialog
+            {...getRootProps()}
+            style={{
+              textAlign: "center",
+              height: "200px",
+              overflow: "hidden",
+              marginTop: "1rem",
+              cursor: "pointer",
+            }}
+            onClick={open}
           >
-            <p className="image-preview-label">Preview:</p>
-            <div>
-              <img
-                src={uploadedImage}
-                alt="Uploaded Preview"
-                style={{ maxWidth: "100%", maxHeight: "100%", borderRadius: "10px", cursor: "pointer" }}
-              />
-            </div>
+            <input {...getInputProps()} />
+            <img
+              src={preview}
+              alt="Uploaded Preview"
+              style={{
+                maxWidth: "100%",
+                maxHeight: "100%",
+                borderRadius: "10px",
+              }}
+            />
           </div>
         )}
 

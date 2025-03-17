@@ -206,7 +206,7 @@ const handleCourseClick = async (course) => {
       <TitleBar />
       <div className="d-flex vh-100">
         <SideBar />
-        <div className="main-content-ad-dboard flex-grow-1">
+        <div className="main-content-ad-dboard flex-grow-1" >
           <div className="p-4">
             <Button className="float-end px-4" onClick={() => navigate('/admin-dashboard')}>
               Back

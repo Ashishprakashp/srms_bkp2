@@ -126,7 +126,8 @@
           <Col md={4} className="d-flex justify-content-end">
             <PassportPhotoUpload
               onImageUpload={handleImageUpload} // Pass the handler to update formData
-              uploadedImage={formData.personalInformation.passportPhoto} // Pass the stored image
+              uploadedImage={`http://localhost:5000/${formData.personalInformation.passportPhoto}`} // Pass the stored image
+              path={formData.personalInformation.passportPhoto}
             />
           </Col>
         </Row>
@@ -147,7 +148,7 @@
 
         {/*personal contact details*/ }
         <Row className="mb-5">
-        <Col md={4}>
+        <Col md={3}>
                 <Form.Group>
                   <Form.Label style={{ color: 'black' }}>Faculty Advisor</Form.Label>
                   <Form.Control
@@ -158,17 +159,62 @@
                   />
                 </Form.Group>
               </Col>
-      <Col md={4}>
-        <Form.Group>
-          <Form.Label style={{ color: 'black' }}>Student Mobile Number</Form.Label>
-          <Form.Control
-            size="sm"
-            type="number"
-            value={formData.personalInformation.mobile || ''}
-            onChange={(e) => handleChange('personalInformation', 'mobile', e.target.value)}
-          />
-        </Form.Group>
-      </Col>
+      <Col md={1}>
+      <Form.Group>
+  {/* Country Code Field */}
+  <Form.Label style={{ color: 'black' }}>Code</Form.Label>
+  <Form.Control
+    size="sm"
+    type="text"
+    value={formData.personalInformation.countryCode || ''}
+    onChange={(e) => {
+      const value = e.target.value;
+      // Allow only '+' followed by up to 2 numbers
+      const sanitizedValue = value
+        .replace(/[^0-9+]/g, '') // Remove invalid characters
+        .replace(/^(\+)?(\d{0,2}).*$/, '$1$2'); // Enforce format: + followed by up to 2 digits
+      handleChange('personalInformation', 'countryCode', sanitizedValue);
+    }}
+    isInvalid={
+      formData.personalInformation.countryCode &&
+      !/^\+\d{2}$/.test(formData.personalInformation.countryCode)
+    }
+    placeholder="+91"
+  />
+  {/* Display error message if the format is incorrect */}
+  {formData.personalInformation.countryCode &&
+    !/^\+\d{2}$/.test(formData.personalInformation.countryCode) && (
+      <Form.Control.Feedback type="invalid">
+        Please enter a valid country code in the format: +XX (e.g., +91).
+      </Form.Control.Feedback>
+    )}
+</Form.Group>
+</Col>
+<Col md={4}>
+<Form.Group>
+  {/* Mobile Number Field */}
+  <Form.Label style={{ color: 'black' }}>Student Mobile Number</Form.Label>
+  <Form.Control
+    size="sm"
+    type="number"
+    value={formData.personalInformation.mobile || ''}
+    onChange={(e) => {
+      const value = e.target.value;
+      // Restrict input to 10 digits
+      if (value.length <= 10) {
+        handleChange('personalInformation', 'mobile', value);
+      }
+    }}
+    isInvalid={formData.personalInformation.mobile && formData.personalInformation.mobile.length !== 10}
+  />
+  {/* Display error message if the number is not 10 digits */}
+  {formData.personalInformation.mobile && formData.personalInformation.mobile.length !== 10 && (
+    <Form.Control.Feedback type="invalid">
+      Please enter a 10-digit mobile number.
+    </Form.Control.Feedback>
+  )}
+</Form.Group>
+</Col>
       <Col md={4}>
                 <Form.Group>
                   <Form.Label style={{ color: 'black' }}>Student Personal Email</Form.Label>
@@ -325,17 +371,7 @@
                   </Form.Select>
                 </Form.Group>
               </Col>
-              <Col md={4}>
-                <Form.Group>
-                  <Form.Label style={{ color: 'black' }}>Contact</Form.Label>
-                  <Form.Control
-                    size="sm"
-                    type="text"
-                    value={formData.personalInformation.contact}
-                    onChange={(e) => handleChange('personalInformation', 'contact', e.target.value)}
-                  />
-                </Form.Group>
-              </Col>
+              
             </Row>
 
             {/* Email and Faculty Advisor */}

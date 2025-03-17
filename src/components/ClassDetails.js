@@ -405,7 +405,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { Table, Pagination, Button, Spinner, Modal } from 'react-bootstrap';
+import { Table, Pagination, Button, Spinner, Modal ,Card, Form} from 'react-bootstrap';
 import axios from 'axios';
 import TitleBar from './TitleBar.js';
 import SideBar from './SideBar.js';
@@ -414,7 +414,8 @@ const ClassDetails = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const { branch, regulation, from_year, to_year, _class } = location.state;
-
+  const [showReasonModal, setShowReasonModal] = useState(false);
+  const [reason, setReason] = useState("");
   const [students, setStudents] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedStudent, setSelectedStudent] = useState(null);
@@ -501,18 +502,39 @@ const ClassDetails = () => {
     }
   };
 
+  const handleReject = () => {
+    setShowReasonModal(true);
+  };
+
+  const handleConfirmReject = async (registerno) => {
+    if (!reason.trim()) {
+      alert("Please provide a reason for rejection.");
+      return;
+    }
+    console.log("Rejected with reason:", reason);
+    const response = await axios.post('http://localhost:5000/reject-student-details', {
+      register: registerno,
+      reason: reason
+    });
+    setShowReasonModal(false);
+    setShowModal(false);
+    window.location.reload();
+  };
+
   const handleView = async (student) => {
     try {
       const response = await axios.get(`http://localhost:5000/students-details/${student.studentId}`);
       setSelectedStudent(response.data);
       setShowModal(true);
-      console.log(student);
+      console.log("Student details!");
+      console.log(response.data);
     } catch (error) {
       console.error('Error fetching student details:', error);
     }
   };
 
   const renderFileLink = (label, filePath) => {
+    console.log(label+" filepath: "+filePath);
     if (!filePath) return null;
     const fileUrl = `http://localhost:5000/file?path=${encodeURIComponent(filePath)}`;
     return (
@@ -534,6 +556,35 @@ const ClassDetails = () => {
       </div>
     );
   }
+
+  const enableStudent = async (val, registerno) => {
+    try {
+      let response;
+      if (val) {
+        response = await axios.post("http://localhost:5000/enable-student", {
+          register: registerno,
+        });
+      } else {
+        response = await axios.post("http://localhost:5000/disable-student", {
+          register: registerno,
+        });
+      }
+  
+      // Update the specific student in state
+      setStudents(prevStudents =>
+        prevStudents.map(student =>
+          student.studentId === registerno
+            ? { ...student, can_fill: val }
+            : student
+        )
+      );
+  
+      console.log(response.data);
+    } catch (error) {
+      console.log("Error toggling student enable state:", error);
+    }
+  };
+  
 
   return (
     <>
@@ -612,6 +663,7 @@ const ClassDetails = () => {
                 <th>Class</th>
                 <th>isEnabled?</th>
                 <th>Filled?</th>
+                <th>Action</th>
               </tr>
             </thead>
             <tbody>
@@ -625,6 +677,18 @@ const ClassDetails = () => {
                   <td>{student._class}</td>
                   <td>{student.can_fill ? 'Yes' : 'No'}</td>
                   <td>{student.filled ? 'Yes' : 'No'}</td>
+                  <td>
+  {student.can_fill ? (
+    <button className="btn btn-danger" onClick={() => enableStudent(false, student.studentId)}>
+      Disable
+    </button>
+  ) : (
+    <button className="btn btn-success" onClick={() => enableStudent(true, student.studentId)}>
+      Enable
+    </button>
+  )}
+</td>
+
                 </tr>
               ))}
             </tbody>
@@ -688,132 +752,159 @@ const ClassDetails = () => {
           </Pagination>
 
           {/* Student Details Modal */}
-          <Modal show={showModal} onHide={() => setShowModal(false)} size="lg">
-            <Modal.Header closeButton>
-              <Modal.Title>Student Details</Modal.Title>
-            </Modal.Header>
-            <Modal.Body>
-              {selectedStudent && (
-                <div>
-                  {/* Personal Information */}
-                  <h5>Personal Information</h5>
-                  <p><strong>Name:</strong> {selectedStudent.personalInformation?.name}</p>
-                  <p><strong>Register Number:</strong> {selectedStudent.personalInformation?.register}</p>
-                  <p><strong>Date of Birth:</strong> {selectedStudent.personalInformation?.dob && new Date(selectedStudent.personalInformation.dob).toLocaleDateString()}</p>
-                  <p><strong>Gender:</strong> {selectedStudent.personalInformation?.sex}</p>
-                  <p><strong>Blood Group:</strong> {selectedStudent.personalInformation?.blood}</p>
-                  <p><strong>Community:</strong> {selectedStudent.personalInformation?.community}</p>
-                  <p><strong>Cutoff:</strong> {selectedStudent.personalInformation?.cutoff}</p>
-                  <p><strong>Special Category:</strong> {selectedStudent.personalInformation?.splcategory}</p>
-                  <p><strong>Scholarship:</strong> {selectedStudent.personalInformation?.scholarship}</p>
-                  <p><strong>Volunteer Work:</strong> {selectedStudent.personalInformation?.volunteer}</p>
-                  <p><strong>Contact:</strong> {selectedStudent.personalInformation?.contact}</p>
-                  <p><strong>Email:</strong> {selectedStudent.personalInformation?.mail}</p>
-                  <p><strong>Father's Assistance:</strong> {selectedStudent.personalInformation?.fa}</p>
-                  <p><strong>Passport Photo:</strong></p>
-                  {selectedStudent.personalInformation?.passportPhoto && (
+          <Modal show={showModal} onHide={() => setShowModal(false)} size="lg" centered>
+      <Modal.Header closeButton className="bg-primary text-white">
+        <Modal.Title>Student Details</Modal.Title>
+      </Modal.Header>
+      <Modal.Body className={`p-4 bg-light ${showReasonModal ? "blurred-modal" : ""}`}>
+        {selectedStudent && (
+          <>
+            {/* Personal Information */}
+            <Card className="mb-3 shadow-sm">
+              <Card.Body>
+                <h5 className="border-bottom pb-2">Personal Information</h5>
+                <p><strong>Name:</strong> {selectedStudent.personalInformation?.name}</p>
+                <p><strong>Register Number:</strong> {selectedStudent.personalInformation?.register}</p>
+                <p><strong>Date of Birth:</strong> {selectedStudent.personalInformation?.dob && new Date(selectedStudent.personalInformation.dob).toLocaleDateString()}</p>
+                <p><strong>Gender:</strong> {selectedStudent.personalInformation?.sex}</p>
+                <p><strong>Blood Group:</strong> {selectedStudent.personalInformation?.blood}</p>
+                <p><strong>Community:</strong> {selectedStudent.personalInformation?.community}</p>
+                <p><strong>Scholarship:</strong> {selectedStudent.personalInformation?.scholarship}</p>
+                <p><strong>Volunteer Work:</strong> {selectedStudent.personalInformation?.volunteer}</p>
+                <p><strong>Contact:</strong> {selectedStudent.personalInformation?.contact}</p>
+                <p><strong>Email:</strong> {selectedStudent.personalInformation?.mail}</p>
+                {selectedStudent.personalInformation?.passportPhoto && (
+                  <div className="text-center mt-3">
                     <img
                       src={`http://localhost:5000/file?path=${encodeURIComponent(selectedStudent.personalInformation.passportPhoto)}`}
                       alt="Passport Photo"
-                      style={{ width: '100px', height: '100px' }}
+                      className="rounded-circle shadow"
+                      style={{ width: '120px', height: '120px', border: "3px solid #007bff" }}
                     />
-                  )}
+                  </div>
+                )}
+              </Card.Body>
+            </Card>
 
-                  {/* Family Information */}
-                  <h5 className="mt-4">Family Information</h5>
-                  <p><strong>Father's Name:</strong> {selectedStudent.familyInformation?.fatherName}</p>
-                  <p><strong>Father's Occupation:</strong> {selectedStudent.familyInformation?.fatherOcc}</p>
-                  <p><strong>Father's Income:</strong> {selectedStudent.familyInformation?.fatherInc}</p>
-                  <p><strong>Mother's Name:</strong> {selectedStudent.familyInformation?.motherName}</p>
-                  <p><strong>Mother's Occupation:</strong> {selectedStudent.familyInformation?.motherOcc}</p>
-                  <p><strong>Mother's Income:</strong> {selectedStudent.familyInformation?.motherInc}</p>
-                  <p><strong>Parent's Address:</strong> {selectedStudent.familyInformation?.parentAddr}</p>
-                  <p><strong>Parent's Contact:</strong> {selectedStudent.familyInformation?.parentContact}</p>
-                  <p><strong>Parent's Email:</strong> {selectedStudent.familyInformation?.parentMail}</p>
-                  <p><strong>Guardian's Address:</strong> {selectedStudent.familyInformation?.guardianAddr}</p>
-                  <p><strong>Guardian's Contact:</strong> {selectedStudent.familyInformation?.guardianContact}</p>
-                  <p><strong>Guardian's Email:</strong> {selectedStudent.familyInformation?.guardianMail}</p>
+            {/* Family Information */}
+            <Card className="mb-3 shadow-sm">
+              <Card.Body>
+                <h5 className="border-bottom pb-2">Family Information</h5>
+                <p><strong>Father's Name:</strong> {selectedStudent.familyInformation?.fatherName}</p>
+                <p><strong>Father's Occupation:</strong> {selectedStudent.familyInformation?.fatherOcc}</p>
+                <p><strong>Mother's Name:</strong> {selectedStudent.familyInformation?.motherName}</p>
+                <p><strong>Parent's Contact:</strong> {selectedStudent.familyInformation?.parentContact}</p>
+                <p><strong>Guardian's Contact:</strong> {selectedStudent.familyInformation?.guardianContact}</p>
+              </Card.Body>
+            </Card>
 
-                  {/* Education Details */}
-                  <h5 className="mt-4">Education Details</h5>
-                  <h6>Class X</h6>
-                  <p><strong>School:</strong> {selectedStudent.education?.xSchool}</p>
-                  <p><strong>Board:</strong> {selectedStudent.education?.xBoard}</p>
-                  <p><strong>Year of Passing:</strong> {selectedStudent.education?.xYear}</p>
-                  <p><strong>Percentage:</strong> {selectedStudent.education?.xPercentage}</p>
-                  <p><strong>Marksheet:</strong></p>
-                  {selectedStudent.education?.xMarksheet && (
-                    renderFileLink('X Marksheet', selectedStudent.education.xMarksheet)
-                  )}
+            {/* Education Details */}
+            <Card className="mb-3 shadow-sm">
+              <Card.Body>
+                <h5 className="border-bottom pb-2">Education Details</h5>
+                <h6 className="text-muted">Class X</h6>
+                <p><strong>School:</strong> {selectedStudent.education?.xSchool}</p>
+                <p><strong>Board:</strong> {selectedStudent.education?.xBoard}</p>
+                <p><strong>Percentage:</strong> {selectedStudent.education?.xPercentage}</p>
+                <p><strong>Marksheet:</strong> {selectedStudent.education?.xMarksheet && renderFileLink('X Marksheet', selectedStudent.education.xMarksheet)}</p>
 
-                  <h6 className="mt-3">Class XII</h6>
-                  <p><strong>School:</strong> {selectedStudent.education?.xiiSchool}</p>
-                  <p><strong>Board:</strong> {selectedStudent.education?.xiiBoard}</p>
-                  <p><strong>Year of Passing:</strong> {selectedStudent.education?.xiiYear}</p>
-                  <p><strong>Percentage:</strong> {selectedStudent.education?.xiiPercentage}</p>
-                  <p><strong>Marksheet:</strong></p>
-                  {selectedStudent.education?.xiiMarksheet && (
-                    renderFileLink('XII Marksheet', selectedStudent.education.xiiMarksheet)
-                  )}
+                <h6 className="text-muted mt-3">Class XII</h6>
+                <p><strong>School:</strong> {selectedStudent.education?.xiiSchool}</p>
+                <p><strong>Board:</strong> {selectedStudent.education?.xiiBoard}</p>
+                <p><strong>Percentage:</strong> {selectedStudent.education?.xiiPercentage}</p>
+                <p><strong>Marksheet:</strong> {selectedStudent.education?.xiiMarksheet && renderFileLink('XII Marksheet', selectedStudent.education.xiiMarksheet)}</p>
+              </Card.Body>
+            </Card>
 
-                  {branch !== 'BTECH' && (
-                    <>
-                      {/* UG Details */}
-                      <h6 className="mt-3">UG Details</h6>
-                      <p><strong>College:</strong> {selectedStudent.education?.ugCollege}</p>
-                      <p><strong>Year of Passing:</strong> {selectedStudent.education?.ugYear}</p>
-                      <p><strong>Percentage:</strong> {selectedStudent.education?.ugPercentage}</p>
-                      <p><strong>Provisional Certificate:</strong></p>
-                      {selectedStudent.education?.ugProvisionalCertificate && (
-                        renderFileLink('UG Provisional Certificate', selectedStudent.education.ugProvisionalCertificate)
-                      )}
+            {/* Entrance Exam & Work Experience */}
+            {branch !== 'BTECH' && (
+              <Card className="mb-3 shadow-sm">
+              <Card.Body>
+                <h5 className="border-bottom pb-2">Entrance Exam & Work Experience</h5>
+                
+                <div><strong>Exam:</strong> {selectedStudent.entranceAndWorkExperience?.entrance}</div>
+                <div><strong>Registration Number:</strong> {selectedStudent.entranceAndWorkExperience?.entranceRegister}</div>
+                <div><strong>Score:</strong> {selectedStudent.entranceAndWorkExperience?.entranceScore}</div>
+                <div><strong>Year:</strong> {selectedStudent.entranceAndWorkExperience?.entranceYear}</div>
+            
+                {selectedStudent.entranceAndWorkExperience?.scorecard && (
+                  <div><strong>Scorecard:</strong> {renderFileLink('Scorecard', selectedStudent.entranceAndWorkExperience.scorecard)}</div>
+                )}
+            
+                {selectedStudent.entranceAndWorkExperience?.workExperience?.length > 0 && (
+                  <>
+                    <h6 className="text-muted mt-3">Work Experience</h6>
+                    {selectedStudent.entranceAndWorkExperience.workExperience.map((work, index) => (
+                      <div key={index} className="mb-3 border-bottom pb-2">
+                        <div><strong>Employer:</strong> {work.employerName}</div>
+                        <div><strong>Role:</strong> {work.role}</div>
+                        <div><strong>Experience:</strong> {work.expYears} years</div>
+                        {work.certificate && <div><strong>Certificate:</strong> {renderFileLink('Certificate', work.certificate)}</div>}
+                      </div>
+                    ))}
+                  </>
+                )}
+              </Card.Body>
+            </Card>
+            
+            
+            )}
 
-                      {/* Entrance Exam Details */}
-                      <h5 className="mt-4">Entrance Exam Details</h5>
-                      <p><strong>Entrance Exam:</strong> {selectedStudent.entranceAndWorkExperience?.entrance}</p>
-                      <p><strong>Registration Number:</strong> {selectedStudent.entranceAndWorkExperience?.entranceRegister}</p>
-                      <p><strong>Score:</strong> {selectedStudent.entranceAndWorkExperience?.entranceScore}</p>
-                      <p><strong>Year:</strong> {selectedStudent.entranceAndWorkExperience?.entranceYear}</p>
-                      <p><strong>Scorecard:</strong></p>
-                      {selectedStudent.entranceAndWorkExperience?.scorecard && (
-                        renderFileLink('Scorecard', selectedStudent.entranceAndWorkExperience.scorecard)
-                      )}
+            {/* Declaration */}
+            <Card className="mb-3 shadow-sm">
+              <Card.Body>
+                <h5 className="border-bottom pb-2">Declaration</h5>
+                <p><strong>Accepted:</strong> {selectedStudent.acceptance ? '✅ Yes' : '❌ No'}</p>
+              </Card.Body>
+            </Card>
+          </>
+        )}
+      </Modal.Body>
 
-                      {/* Work Experience */}
-                      {selectedStudent.entranceAndWorkExperience?.workExperience?.length > 0 && (
-                        <>
-                          <h5 className="mt-4">Work Experience</h5>
-                          {selectedStudent.entranceAndWorkExperience.workExperience.map((work, index) => (
-                            <div key={index} className="mb-3">
-                              <p><strong>Employer:</strong> {work.employerName}</p>
-                              <p><strong>Role:</strong> {work.role}</p>
-                              <p><strong>Experience (Years):</strong> {work.expYears}</p>
-                              <p><strong>Certificate:</strong></p>
-                              {work.certificate && (
-                                renderFileLink('Certificate', work.certificate)
-                              )}
-                            </div>
-                          ))}
-                        </>
-                      )}
-                    </>
-                  )}
+      {/* Footer with Stylish Buttons */}
+      <Modal.Footer className="d-flex justify-content-between">
+        <Button variant="secondary" className="me-2" onClick={() => setShowModal(false)}>
+          Close
+        </Button>
+        <div>
+          <Button className="btn btn-danger me-2" onClick={handleReject}>
+            Reject
+          </Button>
+          <Button variant="success" onClick={handleApprove}>
+            Approve
+          </Button>
+        </div>
+      </Modal.Footer>
 
-                  {/* Declaration */}
-                  <h5 className="mt-4">Declaration</h5>
-                  <p><strong>Accepted:</strong> {selectedStudent.acceptance ? 'Yes' : 'No'}</p>
-                </div>
-              )}
-            </Modal.Body>
-            <Modal.Footer>
-              <Button variant="secondary" onClick={() => setShowModal(false)}>
-                Close
-              </Button>
-    <Button variant="primary" onClick={handleApprove}>
-      Approve
-    </Button>
-          </Modal.Footer>
-          </Modal>
+      {/* Reason Prompt Modal */}
+      <Modal show={showReasonModal} onHide={() => setShowReasonModal(false)} centered>
+        <Modal.Header closeButton style={{ backgroundColor: '#f8f9fa' }}>
+          <Modal.Title>Enter Rejection Reason</Modal.Title>
+        </Modal.Header>
+        <Modal.Body style={{ backgroundColor: '#f8f9fa' }}>
+          <Form>
+            <Form.Group>
+              <Form.Label>Reason:</Form.Label>
+              <Form.Control
+                as="textarea"
+                rows={3}
+                placeholder="Enter reason for rejection..."
+                value={reason}
+                onChange={(e) => setReason(e.target.value)}
+              />
+            </Form.Group>
+          </Form>
+        </Modal.Body>
+        <Modal.Footer style={{ backgroundColor: '#f8f9fa' }}>
+          <Button variant="secondary" onClick={() => setShowReasonModal(false)}>
+            Cancel
+          </Button>
+          <Button variant="danger" onClick={()=>handleConfirmReject(selectedStudent.personalInformation.register)}>
+            Confirm Reject
+          </Button>
+        </Modal.Footer>
+      </Modal>
+    </Modal>
         </div>
       </div>
     </>

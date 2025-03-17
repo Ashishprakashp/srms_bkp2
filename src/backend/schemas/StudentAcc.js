@@ -50,6 +50,14 @@ const StudentAccSchema = new mongoose.Schema({
         type: Number,
         default: 0,
       },
+      refill:{
+        type: Number,
+        default: 0,
+      },
+      reason: {
+        type: String,
+        default:""
+      },
       facultyAdvisor: {
         type: String,
         required: [true, 'facultyAdvisor is required']
