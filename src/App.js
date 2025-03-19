@@ -14,7 +14,10 @@ import StudentLogin from './components/StudentLogin.js';
 import StudentDashboard from './components/StudentDashboard.js';
 import StudentForm from './components/StudentForm.js';
 import StudentDetailsApproval from './components/StudentDetailsApproval.js';
+import StudentGradesApproval from './components/StudentGradesApproval.js';
 import ClassDetails from './components/ClassDetails.js';
+import EnrollmentDetails from './components/EnrollmentDetails.js';
+import SemesterEnrollment from './components/SemesterEnrollment.js';
 
 function App() {
   const services3 = [
@@ -36,10 +39,12 @@ function App() {
         <Route path='/admin-dashboard/course-mgmt/create-course' element={<CreateCourse/>}/>
         <Route path='/admin-dashboard/student-mgmt/create-login' element={<StudentLoginCr/>}/>
         <Route path='/student-details-approval' element={<StudentDetailsApproval />}/>
+        <Route path='/student-grades-approval' element={<StudentGradesApproval />}/>
         <Route path="/class-details" element={<ClassDetails />} />
-
+        <Route path="/enrollment-details" element={<EnrollmentDetails />} />
         <Route path="/student-login" element={<StudentLogin/>}/>
         <Route path="/student-dashboard" element={<StudentDashboard services={services3}/>}/>
+        <Route path="/student-dashboard/semforms" element={<SemesterEnrollment/>}/>
         <Route path="/student-form" element={<StudentForm/>}/>
       </Routes> 
     </Router>

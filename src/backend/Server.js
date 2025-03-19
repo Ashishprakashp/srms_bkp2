@@ -895,7 +895,9 @@ app.get('/student/:studentId', async (req, res) => {
       from_year: student.from_year,
       to_year: student.to_year,
       can_fill: student.can_fill,
-      facultyAdvisor: student.facultyAdvisor
+      facultyAdvisor: student.facultyAdvisor,
+      can_enroll: student.can_enroll,
+      enrolled: student.enrolled
     });
   } catch (error) {
     console.error('Error fetching student details:', error);
@@ -981,6 +983,32 @@ app.post('/student-class/update-can-fill', async (req, res) => {
   }
 });
 
+//Enabling a class for semester enrollment
+app.post('/student-class/update-can-enroll', async (req, res) => {
+  try {
+    const { branch, regulation, from_year, to_year ,sem_no} = req.body;
+    
+    const result = await StudentAcc.updateMany(
+      { 
+        branch,
+        regulation,
+        from_year,
+        to_year
+      },
+      { $set: { can_enroll: sem_no } }
+    );
+
+    res.json({ 
+      success: true,
+      updatedCount: result.modifiedCount
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  }
+});
 
 
 app.get('/faculty/advisors', async (req, res) => {
@@ -1129,6 +1157,68 @@ app.post("/student", uploadMiddleware, async (req, res) => {
   }
 });
 
+//Start of Student enrollment api s
+
+app.post('/enable-student-enroll',async(req,res)=>{
+  try{
+    const {register,sem_no} = req.body;
+    const response = await StudentAcc.updateOne({studentId:register},{$set:{can_enroll:sem_no,enrolled:0}});
+    res.status(200).json({ message: "Student enabled successfully!"});
+  }catch(error){
+    console.error("Error processing request:", error);
+    res.status(400).json({
+      error: error.message,
+      stack: error.stack,
+    });
+  }
+});
+
+app.post('/disable-student-enroll',async(req,res)=>{
+  try{
+    const {register,sem_no} = req.body;
+    const response = await StudentAcc.updateOne({studentId:register},{$set:{can_enroll:0,enrolled:0}});
+    res.status(200).json({ message: "Student disabled successfully!"});
+  }catch(error){
+    console.error("Error processing request:", error);
+    res.status(400).json({
+      error: error.message,
+      stack: error.stack,
+    });
+  }
+});
+
+//Get semester numbers for a course
+app.get("/get-semester-numbers", async (req, res) => {
+  try {
+    const { course_name, regulation } = req.query;
+    console.log(req.query);
+    // Validate request parameters
+    if (!course_name || !regulation) {
+      return res.status(400).json({ message: "course_name and regulation are required" });
+    }
+    // Find the course by course_name and regulation
+    const course = await Course.findOne(
+      { course_name, "regulations.year": regulation },
+      { "regulations.$": 1 } // Project only the matching regulation
+    );
+    if (!course) {
+      return res.status(404).json({ message: "Course or regulation not found" });
+    }
+
+    // Extract semester numbers from the matching regulation
+    const semesters = course.regulations[0].semesters.map((sem) => sem.sem_no);
+
+    // Send response
+    res.status(200).json({ semesters });
+  } catch (error) {
+    console.error("Error fetching semesters:", error);
+    res.status(500).json({ message: "Internal server error" });
+  }
+}); 
+
+
+//End of Student enrollment api s
+
 app.get('/file', (req, res) => {
   const filePath = req.query.path; // Get the absolute path from the query parameter
 
@@ -1274,6 +1364,8 @@ app.post('/save-page-data', uploadMiddleware, async (req, res) => {
       if (pageData.personalInformation && req.files.passportPhoto && req.files.passportPhoto[0]) {
         movedFilePaths.passportPhoto = await saveFile(req.files.passportPhoto[0], "passportPhoto");
       }
+      
+
 
       // Save education-related files ONLY if education data is present in the request
       if (pageData.education) {
@@ -1308,6 +1400,7 @@ app.post('/save-page-data', uploadMiddleware, async (req, res) => {
         ? {
             ...pageData.personalInformation,
             passportPhoto: movedFilePaths.passportPhoto || pageData.personalInformation.passportPhoto || "",
+            aadharFile: movedFilePaths.aadharFile || pageData.personalInformation.aadharFile || "",
           }
         : undefined,
       education: pageData.education
@@ -1415,6 +1508,34 @@ app.post('/disable-student',async(req,res)=>{
   }
 });
 
+app.post('/enable-student-enrollment',async(req,res)=>{
+  try{
+    const {register,sem_no} = req.body;
+    const response = await StudentAcc.updateOne({studentId:register},{$set:{can_enroll:1,enrolled:sem_no}});
+    res.status(200).json({ message: "Student enabled successfully!"});
+  }catch(error){
+    console.error("Error processing request:", error);
+    res.status(400).json({
+      error: error.message,
+      stack: error.stack,
+    });
+  }
+});
+
+app.post('/disable-student-enrollment',async(req,res)=>{
+  try{
+    const {register} = req.body;
+    const response = await StudentAcc.updateOne({studentId:register},{$set:{can_enroll:0,enrolled:0}});
+    res.status(200).json({ message: "Student disabled successfully!"});
+  }catch(error){
+    console.error("Error processing request:", error);
+    res.status(400).json({
+      error: error.message,
+      stack: error.stack,
+    });
+  }
+});
+
 app.post('/reject-student-details',async(req,res)=>{
   try{
     const {register,reason} = req.body;
@@ -1428,6 +1549,8 @@ app.post('/reject-student-details',async(req,res)=>{
     });
   }
 })
+
+
 
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => console.log(`Server running on http://localhost:${PORT}`));

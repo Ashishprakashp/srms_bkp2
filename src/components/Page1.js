@@ -1,9 +1,10 @@
-  import React, { useEffect } from 'react';
+  import React, { useEffect ,useRef} from 'react';
   import { Form, Row, Col, Container } from 'react-bootstrap';
   import PassportPhotoUpload from './PassportPhotoUpload.js';
   import axios from 'axios';
 
   const Page1 = ({ formData, setFormData }) => {
+    const aadharInputRef = useRef(null);
     const branch = sessionStorage.getItem('branch');
 
     useEffect(() => {
@@ -35,6 +36,30 @@
       fetchStudentDetails();
     }, [setFormData]);
 
+    const handleFileUpload = (field, file) => {
+      if (!file) return;
+  
+      // Clean up previous Blob URL
+      if (formData.education[field]?.url) {
+        URL.revokeObjectURL(formData.education[field].url);
+      }
+  
+      // Create a new Blob URL for preview
+      const url = URL.createObjectURL(file);
+      console.log("File: "+file.name);
+      // Update form data with both the file and the URL
+      setFormData({
+        ...formData,
+        personalInformation: {
+          ...formData.personalInformation,
+          aadhar:url,
+          //aadharFile: file 
+          
+        }
+      });
+      
+    };
+
     const handleChange = (section, field, value) => {
       if (field === 'year' || field === 'percentage' || field === 'cutoff') {
         value = parseFloat(value);
@@ -65,8 +90,30 @@
         }));
       }
     };
-  
 
+    const handleFileChange = (field, file) => {
+      if (!file) return;
+  
+      // Clean up previous Blob URL
+      if (formData.personalInformation[field]?.url) {
+        URL.revokeObjectURL(formData.personalInformation[field].url);
+      }
+  
+      // Create a new Blob URL for preview
+      const url = URL.createObjectURL(file);
+  
+      // Update form data with both the file and the URL
+      setFormData({
+        ...formData,
+        personalInformation: {
+          ...formData.personalInformation,
+          [field]:url,
+          [`${field}File`]: file 
+          
+        }
+      });
+      
+    };
     return (
       <Container fluid className="p-4">
         {/* Top Section - Personal Info + Photo Upload */}
@@ -144,6 +191,53 @@
                   />
                 </Form.Group>
               </Col>
+              <Col md={4}>
+<Form.Group>
+  {/* Aadhar Number Field */}
+  <Form.Label style={{ color: 'black' }}>Aadhar Number</Form.Label>
+  <Form.Control
+    size="sm"
+    type="number"
+    value={formData.personalInformation.aadhar_no || ''}
+    onChange={(e) => {
+      const value = e.target.value;
+      // Restrict input to 10 digits
+      if (value.length <= 12) {
+        handleFileChange('aadhar', value);
+      }
+    }}
+    isInvalid={formData.personalInformation.aadhar_no && formData.personalInformation.aadhar_no.length !== 12}
+  />
+  {/* Display error message if the number is not 10 digits */}
+  {formData.personalInformation.mobile && formData.personalInformation.mobile.length !== 12 && (
+    <Form.Control.Feedback type="invalid">
+      Please enter a 12-digit mobile number.
+    </Form.Control.Feedback>
+  )}
+</Form.Group>
+
+</Col>
+<Col md={4}>
+          <Form.Group>
+            <Form.Label>Aadhar:</Form.Label>
+            <Form.Control
+              type="file"
+              accept=".pdf"
+              ref={aadharInputRef}
+              onChange={(e) => handleFileUpload('aadharFile', e.target.files[0])}
+            />
+          </Form.Group>
+        </Col>
+        <Col md={12} className="mt-3">
+          {formData.personalInformation.aadharFile && (
+            <div>
+              <a href={`http://localhost:5000/${formData.personalInformation.aadharFile}`} target="_blank" rel="noopener noreferrer" className="me-3">
+                View Aadhar
+              </a>
+              <span className="text-muted">{formData.personalInformation.aadharFile.name}</span>
+            </div>
+          )}
+        </Col>
         </Row>
 
         {/*personal contact details*/ }
@@ -293,6 +387,63 @@
 
             {/* Community, Cutoff Mark, and Special Category */}
             <Row className="mb-5">
+            <Col md={4}>
+                <Form.Group>
+                  <Form.Label style={{ color: 'black' }}>Student type</Form.Label>
+                  <div>
+                    <Form.Check
+                      inline
+                      type="radio"
+                      label="Day Scholar"
+                      name="Day Scholar"
+                      value="Day Scholar"
+                      checked={formData.personalInformation.student_type === 'Day Scholar'}
+                      onChange={(e) => handleChange('personalInformation', 'student_type', e.target.value)}
+                    />
+                    <Form.Check
+                      inline
+                      type="radio"
+                      label="Hosteller"
+                      name="Hosteller"
+                      value="Hosteller"
+                      checked={formData.personalInformation.student_type === 'Hosteller'}
+                      onChange={(e) => handleChange('personalInformation', 'student_type', e.target.value)}
+                    />
+                  </div>
+                </Form.Group>
+              </Col>
+              {formData.personalInformation.student_type === 'Hosteller' && (
+  <Col md={4}>
+    <Form.Group>
+      <Form.Label style={{ color: 'black' }}>Hostel</Form.Label>
+      <Form.Select
+        value={formData.personalInformation.hostel}
+        onChange={(e) => handleChange('personalInformation', 'hostel', e.target.value)}
+      >
+        <option value="--" defaultChecked>--</option>
+        {formData.personalInformation.sex === 'M' ? (
+          <>
+            <option value="BH1">BH1</option>
+            <option value="BH2">BH2</option>
+            <option value="BH3">BH3</option>
+            <option value="BH4">BH4</option>
+            <option value="BH5">BH5</option>
+          </>
+        ) : formData.personalInformation.sex === 'F' ? (
+          <>
+            <option value="GH1">GH1</option>
+            <option value="GH2">GH2</option>
+            <option value="GH3">GH3</option>
+            <option value="GH4">GH4</option>
+            <option value="GH5">GH5</option>
+          </>
+        ) : null}
+      </Form.Select>
+    </Form.Group>
+  </Col>
+)}
+
+            
               <Col md={4}>
                 <Form.Group>
                   <Form.Label style={{ color: 'black' }}>Community</Form.Label>
@@ -309,7 +460,14 @@
                   </Form.Select>
                 </Form.Group>
               </Col>
-              {branch === 'Btech' && (
+
+              
+              
+            </Row>
+
+            {/* Scholarship, Volunteer, and Contact */}
+            <Row className="mb-5">
+            {branch === 'Btech' && (
                 <Col md={4}>
                   <Form.Group>
                     <Form.Label style={{ color: 'black' }}>Cutoff Mark</Form.Label>
@@ -342,10 +500,6 @@
                   </Form.Select>
                 </Form.Group>
               </Col>
-            </Row>
-
-            {/* Scholarship, Volunteer, and Contact */}
-            <Row className="mb-5">
               <Col md={4}>
                 <Form.Group>
                   <Form.Label style={{ color: 'black' }}>Scholarship Received (if any)</Form.Label>

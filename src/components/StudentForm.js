@@ -23,6 +23,11 @@ const StudentForm = () => {
     personalInformation: {
       name: '',
       register: '',
+      aadhar_no:'',
+      aadhar:'',
+      aadharFile:null,
+      student_type:'',
+      hostel:'',
       dob: null,
       sex: '',
       blood: '--',
@@ -360,6 +365,7 @@ const StudentForm = () => {
     switch (currentPage) {
       case 1:
         appendFile('passportPhoto', formData.personalInformation.passportPhotoFile);
+        //appendFile('aadharFile', formData.personalInformation.aadharFile);
         break;
       case 3:
         appendFile('xMarksheet', formData.education.xMarksheetFile);

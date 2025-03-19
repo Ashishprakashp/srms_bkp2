@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import subjectSchema from "./subject.js";
 
 const StudentAccSchema = new mongoose.Schema({
     studentId: {
@@ -62,6 +63,30 @@ const StudentAccSchema = new mongoose.Schema({
         type: String,
         required: [true, 'facultyAdvisor is required']
       },
+      arrears:{
+        type: [subjectSchema]
+      },
+      can_enroll:{
+        type: Number,
+        default:0,
+      },
+      enrolled:{
+        type: Number,
+        default:0,
+      },
+      grades_filled:{
+        type: Number,
+        default: 0,
+      },
+      grades_approved:{
+        type: Number,
+        default: 0,
+      },
+      grades_reason:{
+        type: String,
+        default:""
+      },
+      
   });
 
   const StudentAcc = mongoose.model('StudentAcc', StudentAccSchema);

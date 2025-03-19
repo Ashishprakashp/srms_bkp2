@@ -134,7 +134,9 @@ const Page2 = ({ formData, setFormData }) => {
             </Form.Group>
           </Col>
         </Row>
-        <Row className="mb-3">
+        {formData.personalInformation.student_type==='Hosteller'&&(
+          <>
+          <Row className="mb-3">
           <Col>
             <Form.Group>
               <Form.Label>Name & Address of Guardian:</Form.Label>
@@ -169,6 +171,9 @@ const Page2 = ({ formData, setFormData }) => {
             </Form.Group>
           </Col>
         </Row>
+        </>
+        )}
+        
       </fieldset>
     </div>
   );

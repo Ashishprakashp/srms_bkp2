@@ -4,7 +4,11 @@ const StudentSchema = new mongoose.Schema({
   // Personal Information
   personalInformation: {
     name: { type: String, default: '' },
+    aadhar_no:{ type: String, default: '' },
+    aadharFile: { type: String, default: '' },
     register: { type: String, default: '', unique: true }, // Unique registration number
+    student_type: { type: String, enum: ['Day Scholar', 'Hosteller'], default: '' },
+    hostel: { type: String, default: '' },
     dob: { type: Date, default: null },
     sex: { type: String, enum: ['M', 'F'], default: '' },
     blood: { type: String, enum: ['O+', 'O-', 'A+', 'A-', 'B+', 'B-', 'AB+', 'AB-'], default: '' },

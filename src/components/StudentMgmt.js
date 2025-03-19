@@ -56,7 +56,7 @@ const StudentMgmt = () => {
                 ['Create Login', 'card-1', '/admin-dashboard/student-mgmt/create-login'],
                 ['Reset Login', 'card-2', ''],
                 ['Student Details Approval', 'card-3', '/student-details-approval'],
-                ['Grades Approval', 'card-4', ''],
+                ['Enrollment and Grades Approval', 'card-4', '/student-grades-approval'],
                 ['Generate Report', 'card-1', ''],
                 ['Create/Edit Document Templates', 'card-2', ''],
                 ['Document Approval', 'card-3', ''],
