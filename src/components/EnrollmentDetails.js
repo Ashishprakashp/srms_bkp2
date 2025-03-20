@@ -41,7 +41,7 @@ const EnrollmentDetails = () => {
     const fetchStudents = async () => {
       try {
         const response = await axios.get("http://localhost:5000/student-class/all");
-  
+
         // Filter students based on the criteria
         const filteredStudents = response.data.filter(
           (student) =>
@@ -51,7 +51,7 @@ const EnrollmentDetails = () => {
             student.to_year === to_year &&
             student._class === _class
         );
-  
+
         // Update state with filtered students
         setStudents(filteredStudents);
         setLoading(false); // Set loading to false
@@ -60,7 +60,7 @@ const EnrollmentDetails = () => {
         setLoading(false); // Set loading to false even if there's an error
       }
     };
-  
+
     fetchStudents();
   }, [branch, regulation, from_year, to_year, _class]); // Add dependencies to re-run the effect when these values change
 
@@ -71,18 +71,12 @@ const EnrollmentDetails = () => {
     setCurrentPagePending(1); // Reset pagination for pending students
   };
 
-  // Handle viewing student details
-  const handleView = (student) => {
-    console.log("Viewing student:", student);
-    // Add logic to open a modal or navigate to a new page
-  };
-
   // Filter students by semester
   const enrolledStudents = students.filter(
-    (student) => student.enrolledSemesters?.includes(selectedSemester)
+    (student) => student.enrolled === selectedSemester
   );
   const pendingStudents = students.filter(
-    (student) => !student.enrolledSemesters?.includes(selectedSemester)
+    (student) => !student.enrolled !== selectedSemester
   );
 
   // Pagination functions
@@ -96,6 +90,62 @@ const EnrollmentDetails = () => {
     return students.slice(indexOfFirst, indexOfLast);
   };
 
+  const revokeAll = async()=>{
+    try{
+      const response = await axios.post("http://localhost:5000/student/enrollment/revoke-all",{
+        branch:branch, year:regulation, from_year:from_year, to_year:to_year, _class:_class 
+      });
+      console.log("revoke: "+response.data);
+      setStudents((prevStudents) =>
+        prevStudents.map((student) =>
+          (student.enrolled===selectedSemester)
+            ? { ...student, can_enroll: 0, enrolled: 0 }
+            : student
+        )
+      );
+    }catch(error){
+      console.log("Error Revoking students!", error);
+    }
+  }
+
+  const enableAll = async()=>{
+    try{
+      const response = await axios.post(`http://localhost:5000/student/enrollment/enable-all/${selectedSemester}`,{
+        branch:branch, year:regulation, from_year:from_year, to_year:to_year, _class:_class 
+      });
+      console.log("enable: "+response.data);
+      setStudents((prevStudents) =>
+        prevStudents.map((student) => ({
+          ...student,  // Spread previous student data
+          can_enroll: selectedSemester,
+          enrolled: 0
+        }))
+      );
+      
+    }catch(error){
+      console.log("Error Revoking students!", error);
+    }
+  }
+
+  const disableAll = async()=>{
+    try{
+      const response = await axios.post(`http://localhost:5000/student/enrollment/disable-all/${selectedSemester}`,{
+        branch:branch, year:regulation, from_year:from_year, to_year:to_year, _class:_class 
+      });
+      console.log("disable: "+response.data);
+      setStudents((prevStudents) =>
+        prevStudents.map((student) => ({
+          ...student,  // Spread previous student data
+          can_enroll: 0,
+          enrolled: 0
+        }))
+      );
+      
+    }catch(error){
+      console.log("Error Disabling students!", error);
+    }
+  }
+
   const enableStudent = async (val, registerno) => {
     try {
       let response;
@@ -107,19 +157,19 @@ const EnrollmentDetails = () => {
       } else {
         response = await axios.post("http://localhost:5000/disable-student-enroll", {
           register: registerno,
-          sem_no:0,
+          sem_no: 0,
         });
       }
-  
+
       // Update the specific student in state
-      setStudents(prevStudents =>
-        prevStudents.map(student =>
+      setStudents((prevStudents) =>
+        prevStudents.map((student) =>
           student.studentId === registerno
-            ? { ...student, can_enroll: val }
+            ? { ...student, can_enroll: val, enrolled: val ? val : 0 }
             : student
         )
       );
-  
+
       console.log(response.data);
     } catch (error) {
       console.log("Error toggling student enable state:", error);
@@ -168,51 +218,58 @@ const EnrollmentDetails = () => {
               <Row className="mb-4">
                 <Col>
                   <h2>Enrolled Students (Semester {selectedSemester})</h2>
-                  <Table striped bordered hover>
-                    <thead>
-                      <tr>
-                        <th>Student ID</th>
-                        <th>Name</th>
-                        <th>Branch</th>
-                        <th>Regulation</th>
-                        <th>Batch</th>
-                        <th>Class</th>
-                        <th>isEnabled?</th>
-                        <th>isEnrolled?</th>
-                        <th>Action</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {getCurrentStudents(enrolledStudents, currentPageEnrolled).map((student) => (
-                        <tr key={student.studentId}>
-                          <td>{student.studentId}</td>
-                          <td>{student.name}</td>
-                          <td>{student.branch}</td>
-                          <td>{student.regulation}</td>
-                          <td>{student.from_year} - {student.to_year}</td>
-                          <td>{student._class}</td>
-                          <td>{student.can_enroll ? "Yes" : "No"}</td>
-                          <td>{student.enrolled ? "Yes" : "No"}</td>
-                          <td>
-                            <Button variant="primary" onClick={() => handleView(student)}>
-                              View
-                            </Button>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </Table>
-                  <Pagination>
-                    {[...Array(Math.ceil(enrolledStudents.length / studentsPerPage)).keys()].map((number) => (
-                      <Pagination.Item
-                        key={number + 1}
-                        active={number + 1 === currentPageEnrolled}
-                        onClick={() => paginateEnrolled(number + 1)}
-                      >
-                        {number + 1}
-                      </Pagination.Item>
-                    ))}
-                  </Pagination>
+                  {enrolledStudents.length > 0 ? (
+                    <>
+                      <button className="btn btn-danger float-end mb-5" onClick={()=>revokeAll()}>Revoke All</button>
+                      <Table striped bordered hover>
+                        <thead>
+                          <tr>
+                            <th>Student ID</th>
+                            <th>Name</th>
+                            <th>Branch</th>
+                            <th>Regulation</th>
+                            <th>Batch</th>
+                            <th>Class</th>
+                            <th>isEnabled?</th>
+                            <th>isEnrolled?</th>
+                            <th>Action</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {getCurrentStudents(enrolledStudents, currentPageEnrolled).map((student) => (
+                            <tr key={student.studentId}>
+                              <td>{student.studentId}</td>
+                              <td>{student.name}</td>
+                              <td>{student.branch}</td>
+                              <td>{student.regulation}</td>
+                              <td>{student.from_year} - {student.to_year}</td>
+                              <td>{student._class}</td>
+                              <td>{student.can_enroll ? "Yes" : "No"}</td>
+                              <td>{student.enrolled ? "Yes" : "No"}</td>
+                              <td>
+                                <Button variant="primary" onClick={() => enableStudent(false, student.studentId)}>
+                                  Revoke
+                                </Button>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </Table>
+                      <Pagination>
+                        {[...Array(Math.ceil(enrolledStudents.length / studentsPerPage)).keys()].map((number) => (
+                          <Pagination.Item
+                            key={number + 1}
+                            active={number + 1 === currentPageEnrolled}
+                            onClick={() => paginateEnrolled(number + 1)}
+                          >
+                            {number + 1}
+                          </Pagination.Item>
+                        ))}
+                      </Pagination>
+                    </>
+                  ) : (
+                    <p>No Students</p>
+                  )}
                 </Col>
               </Row>
 
@@ -220,57 +277,65 @@ const EnrollmentDetails = () => {
               <Row className="mb-4">
                 <Col>
                   <h2>Enrollment-Pending Students (Semester {selectedSemester})</h2>
-                  <Table striped bordered hover>
-                    <thead>
-                      <tr>
-                        <th>Student ID</th>
-                        <th>Name</th>
-                        <th>Branch</th>
-                        <th>Regulation</th>
-                        <th>Batch</th>
-                        <th>Class</th>
-                        <th>isEnabled?</th>
-                        <th>isEnrolled?</th>
-                        <th>Action</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {getCurrentStudents(pendingStudents, currentPagePending).map((student) => (
-                        <tr key={student.studentId}>
-                          <td>{student.studentId}</td>
-                          <td>{student.name}</td>
-                          <td>{student.branch}</td>
-                          <td>{student.regulation}</td>
-                          <td>{student.from_year} - {student.to_year}</td>
-                          <td>{student._class}</td>
-                          <td>{student.can_enroll ? "Yes" : "No"}</td>
-                          <td>{student.enrolled ? "Yes" : "No"}</td>
-                          <td>
-                          {student.can_enroll ? (
-    <button className="btn btn-danger" onClick={() => enableStudent(false, student.studentId)}>
-      Disable
-    </button>
-  ) : (
-    <button className="btn btn-success" onClick={() => enableStudent(true, student.studentId)}>
-      Enable
-    </button>
-  )}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </Table>
-                  <Pagination>
-                    {[...Array(Math.ceil(pendingStudents.length / studentsPerPage)).keys()].map((number) => (
-                      <Pagination.Item
-                        key={number + 1}
-                        active={number + 1 === currentPagePending}
-                        onClick={() => paginatePending(number + 1)}
-                      >
-                        {number + 1}
-                      </Pagination.Item>
-                    ))}
-                  </Pagination>
+                  {pendingStudents.length > 0 ? (
+                    <>
+                      <button className="btn btn-success float-end ms-5 me-4 mb-5" onClick={()=>enableAll()}>Enable All</button>
+                      <button className="btn btn-danger float-end mb-5" onClick={()=>disableAll()}>Disable All</button>
+                      <Table striped bordered hover>
+                        <thead>
+                          <tr>
+                            <th>Student ID</th>
+                            <th>Name</th>
+                            <th>Branch</th>
+                            <th>Regulation</th>
+                            <th>Batch</th>
+                            <th>Class</th>
+                            <th>isEnabled?</th>
+                            <th>isEnrolled?</th>
+                            <th>Action</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {getCurrentStudents(pendingStudents, currentPagePending).map((student) => (
+                            <tr key={student.studentId}>
+                              <td>{student.studentId}</td>
+                              <td>{student.name}</td>
+                              <td>{student.branch}</td>
+                              <td>{student.regulation}</td>
+                              <td>{student.from_year} - {student.to_year}</td>
+                              <td>{student._class}</td>
+                              <td>{student.can_enroll ? "Yes" : "No"}</td>
+                              <td>{student.enrolled ? "Yes" : "No"}</td>
+                              <td>
+                                {student.can_enroll ? (
+                                  <button className="btn btn-danger" onClick={() => enableStudent(false, student.studentId)}>
+                                    Disable
+                                  </button>
+                                ) : (
+                                  <button className="btn btn-success" onClick={() => enableStudent(true, student.studentId)}>
+                                    Enable
+                                  </button>
+                                )}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </Table>
+                      <Pagination>
+                        {[...Array(Math.ceil(pendingStudents.length / studentsPerPage)).keys()].map((number) => (
+                          <Pagination.Item
+                            key={number + 1}
+                            active={number + 1 === currentPagePending}
+                            onClick={() => paginatePending(number + 1)}
+                          >
+                            {number + 1}
+                          </Pagination.Item>
+                        ))}
+                      </Pagination>
+                    </>
+                  ) : (
+                    <p>No Students</p>
+                  )}
                 </Col>
               </Row>
             </>

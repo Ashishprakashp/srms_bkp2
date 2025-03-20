@@ -1,25 +1,20 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import Page1 from './Page1.js';
-import Page2 from './Page2.js';
-import Page3 from './Page3.js';
-import Page4 from './Page4.js';
-import Page5 from './Page5.js';
-import { Container, Row, Col, Button, Nav, Spinner } from 'react-bootstrap';
+import { Container, Button, Spinner, Table, Modal } from 'react-bootstrap';
 import TitleBar from './TitleBar.js';
 import StudentSideBar from './StudentSideBar.js';
 import { useNavigate } from 'react-router-dom';
 
-const SemesterEnrollment= () => {
+const SemesterEnrollment = () => {
   const navigate = useNavigate();
-  const [currentPage, setCurrentPage] = useState(1);
   const [loading, setLoading] = useState(true);
   const [formEnabled, setFormEnabled] = useState(false);
+  const [semesterData, setSemesterData] = useState([]);
+  const [semesterNumber, setSemesterNumber] = useState(null);
+  const [showModal, setShowModal] = useState(false); // Modal state
   const branch = sessionStorage.getItem('branch');
-  const isBtech = branch.startsWith('BTECH'); // Check if branch starts with BTECH
-  const totalPages = isBtech ? 4 : 5; // Skip Page 4 for BTECH students
+  const isBtech = branch.startsWith('BTECH');
 
-  
   useEffect(() => {
     const fetchStudentDetails = async () => {
       try {
@@ -27,35 +22,29 @@ const SemesterEnrollment= () => {
         const response = await axios.get(`http://localhost:5000/student/${studentId}`, {
           withCredentials: true,
         });
-        console.log(response.data);
-        const { 
-          studentId: fetchedStudentId, 
-          name,
-          branch, 
-          regulation, 
-          from_year, 
-          to_year,
-          can_fill ,
-          facultyAdvisor,
-          can_enroll,
-          enrolled,
+        const { can_enroll } = response.data;
 
-        } = response.data;
-        console.log(can_enroll);
-        // Check if form submission is allowed
         setFormEnabled(can_enroll !== 0);
-
-        
+        if (can_enroll !== 0) {
+          const semester_response = await axios.get("http://localhost:5000/semester-details", {
+            withCredentials: true,
+            params: {
+              course_name: branch,
+              year: response.data.regulation,
+              sem_no: can_enroll,
+            },
+          });
+          setSemesterData(semester_response.data.subjects);
+          setSemesterNumber(can_enroll);
+        }
       } catch (error) {
         console.error('Error fetching enrollment details:', error);
       } finally {
         setLoading(false);
-        
       }
     };
-
     fetchStudentDetails();
-  });
+  }, [branch]);
 
   if (loading) {
     return (
@@ -67,6 +56,18 @@ const SemesterEnrollment= () => {
     );
   }
 
+  const enrollForSemester = async () => {
+    try {
+      const studentId = sessionStorage.getItem('student');
+      await axios.post(`http://localhost:5000/student/enroll/${studentId}/${semesterNumber}`, {}, {
+        withCredentials: true,
+      });
+      setShowModal(true); // Show success modal
+    } catch (error) {
+      console.error('Error enrolling:', error);
+    }
+  };
+
   return (
     <div>
       <TitleBar />
@@ -74,11 +75,33 @@ const SemesterEnrollment= () => {
         <StudentSideBar />
         {formEnabled ? (
           <Container fluid className="p-4" style={{ overflowY: 'auto', height: 'calc(100vh - 56px)' }}>
-            <p>Enabled To Enroll</p>
+            <h3>{semesterNumber ? `${branch} Semester ${semesterNumber} Enrollment` : ''}</h3>
+            <Table striped bordered hover className="rounded-3 mt-5">
+              <thead className="table-primary">
+                <tr>
+                  <th>Subject Code</th>
+                  <th>Subject Name</th>
+                  <th>Credits</th>
+                  <th>Subject Type</th>
+                </tr>
+              </thead>
+              <tbody>
+                {semesterData.map((subject, index) => (
+                  <tr key={index}>
+                    <td>{subject.subject_code}</td>
+                    <td>{subject.subject_name}</td>
+                    <td>{subject.credits}</td>
+                    <td>{subject.subject_type}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </Table>
+            <Button className='btn btn-primary float-end px-5 fw-bold mt-5' onClick={enrollForSemester}>
+              Enroll
+            </Button>
           </Container>
         ) : (
-          <Container fluid className="p-4 d-flex align-items-center justify-content-center"
-            style={{ height: 'calc(100vh - 56px)' }}>
+          <Container fluid className="p-4 d-flex align-items-center justify-content-center" style={{ height: 'calc(100vh - 56px)' }}>
             <div className="text-center">
               <h2 className="mb-4">This process is closed now!</h2>
               <Button variant="primary" onClick={() => navigate('/student-dashboard')}>
@@ -88,6 +111,21 @@ const SemesterEnrollment= () => {
           </Container>
         )}
       </div>
+
+      {/* Success Modal */}
+      <Modal show={showModal} onHide={() => { setShowModal(false); window.location.reload(); }} centered>
+        <Modal.Header closeButton>
+          <Modal.Title>Enrollment Successful</Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          <p>You have successfully enrolled in Semester {semesterNumber}!</p>
+        </Modal.Body>
+        <Modal.Footer>
+          <Button variant="primary" onClick={() => window.location.reload()}>
+            OK
+          </Button>
+        </Modal.Footer>
+      </Modal>
     </div>
   );
 };

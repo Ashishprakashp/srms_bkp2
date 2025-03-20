@@ -1,4 +1,4 @@
-import express from 'express';
+import express, { query } from 'express';
 import mongoose from 'mongoose';
 import cors from 'cors';
 import dotenv from 'dotenv';
@@ -1216,6 +1216,141 @@ app.get("/get-semester-numbers", async (req, res) => {
   }
 }); 
 
+//Get semester details when branch, regulation and sem_no is provided
+app.get("/semester-details", async (req, res) => {
+  try {
+    const { course_name, year, sem_no } = req.query;
+    console.log(req.query);
+
+    // Validate request parameters
+    if (!course_name || !year || !sem_no) {
+      return res.status(400).json({ message: "course_name, year, and semester number are required" });
+    }
+
+    // Find the course by course_name, year, and semester number
+    const course = await Course.findOne(
+      {
+        course_name,
+        "regulations.year": year,
+        "regulations.semesters.sem_no": sem_no,
+      },
+      {
+        "regulations.$": 1, // Return only the matching regulation
+      }
+    );
+
+    if (!course) {
+      return res.status(404).json({ message: "Course, regulation, or semester not found" });
+    }
+
+    // Extract the matching regulation
+    const regulation = course.regulations[0];
+
+    // Find the matching semester in the regulation
+    const matchingSemester = regulation.semesters.find((sem) => sem.sem_no === parseInt(sem_no));
+    
+    if (!matchingSemester) {
+      return res.status(404).json({ message: "Semester not found" });
+    }
+    const subjects = matchingSemester.subjects;
+
+    if (subjects.length===0) {
+      return res.status(404).json({ message: "Subjects not found" });
+    }
+    // Extract semester numbers from the matching regulation
+    const semesters = regulation.semesters.map((sem) => sem.sem_no);
+
+    // Send response
+    res.status(200).json({ subjects});
+  } catch (error) {
+    console.error("Error fetching semesters:", error);
+    res.status(500).json({ message: "Internal server error" });
+  }
+});
+
+//Student enrolling to a semester
+app.post('/student/enroll/:studentId/:semesterNumber', async (req, res) => {
+  const { studentId, semesterNumber } = req.params;
+  console.log(req.params);
+  try {
+    // Step 1: Update the student's enrollment status
+    const result = await StudentAcc.updateOne(
+      { studentId }, // Query to find the student
+      { $set: { enrolled: semesterNumber, can_enroll: 0 } } // Update fields
+    );
+
+    // Step 2: Check if the student was found and updated
+    if (result.matchedCount === 0) {
+      return res.status(404).json({ message: 'Student not found' });
+    }
+
+    // Step 3: Fetch the updated student data
+    const updatedStudent = await StudentAcc.findOne({ studentId });
+
+    // Step 4: Send success response with the updated student data
+    res.status(200).json({ message: 'Enrollment successful', student: updatedStudent });
+  } catch (error) {
+    console.error('Error enrolling student:', error);
+    res.status(500).json({ message: 'Internal server error' });
+  }
+});
+
+//Revoke set of students
+app.post("/student/enrollment/revoke-all", async (req, res) => {
+  try {
+    const { branch, year, from_year, to_year, _class } = req.body;
+
+    // Update students matching the criteria
+    const updatedStudents = await StudentAcc.updateMany(
+      { branch:branch, regulation:year, from_year:from_year, to_year:to_year, _class:_class },
+      { $set: { enrolled: 0, can_enroll: 0 } }
+    );
+    if(updatedStudents){
+      console.log("Revoked all!"+updatedStudents.length);
+    }
+    res.status(200).json({ message: "Enrollment revoked successfully", updatedStudents });
+  } catch (error) {
+    res.status(500).json({ message: "Error revoking enrollments", error });
+  }
+});
+
+//Enable set of students
+app.post("/student/enrollment/enable-all/:semesterNumber", async (req, res) => {
+  try {
+    const { branch, year, from_year, to_year, _class } = req.body;
+    const {semesterNumber}  = req.params;
+    // Update students matching the criteria
+    const updatedStudents = await StudentAcc.updateMany(
+      { branch:branch, regulation:year, from_year:from_year, to_year:to_year, _class:_class },
+      { $set: { enrolled: 0, can_enroll: semesterNumber } }
+    );
+    if(updatedStudents){
+      console.log("Enabled all!"+updatedStudents.length);
+    }
+    res.status(200).json({ message: "Enrollment enabled successfully", updatedStudents });
+  } catch (error) {
+    res.status(500).json({ message: "Error enabling enrollments", error });
+  }
+});
+
+//Disable a set of students
+app.post("/student/enrollment/disable-all/:semesterNumber", async (req, res) => {
+  try {
+    const { branch, year, from_year, to_year, _class } = req.body;
+    const {semesterNumber}  = req.params;
+    // Update students matching the criteria
+    const updatedStudents = await StudentAcc.updateMany(
+      { branch:branch, regulation:year, from_year:from_year, to_year:to_year, _class:_class },
+      { $set: { enrolled: 0, can_enroll: 0 } }
+    );
+    if(updatedStudents){
+      console.log("Disabled all!"+updatedStudents.length);
+    }
+    res.status(200).json({ message: "Enrollment disabled successfully", updatedStudents });
+  } catch (error) {
+    res.status(500).json({ message: "Error disabling enrollments", error });
+  }
+});
 
 //End of Student enrollment api s
 
@@ -1508,33 +1643,7 @@ app.post('/disable-student',async(req,res)=>{
   }
 });
 
-app.post('/enable-student-enrollment',async(req,res)=>{
-  try{
-    const {register,sem_no} = req.body;
-    const response = await StudentAcc.updateOne({studentId:register},{$set:{can_enroll:1,enrolled:sem_no}});
-    res.status(200).json({ message: "Student enabled successfully!"});
-  }catch(error){
-    console.error("Error processing request:", error);
-    res.status(400).json({
-      error: error.message,
-      stack: error.stack,
-    });
-  }
-});
 
-app.post('/disable-student-enrollment',async(req,res)=>{
-  try{
-    const {register} = req.body;
-    const response = await StudentAcc.updateOne({studentId:register},{$set:{can_enroll:0,enrolled:0}});
-    res.status(200).json({ message: "Student disabled successfully!"});
-  }catch(error){
-    console.error("Error processing request:", error);
-    res.status(400).json({
-      error: error.message,
-      stack: error.stack,
-    });
-  }
-});
 
 app.post('/reject-student-details',async(req,res)=>{
   try{
