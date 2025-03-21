@@ -18,12 +18,15 @@ import StudentGradesApproval from './components/StudentGradesApproval.js';
 import ClassDetails from './components/ClassDetails.js';
 import EnrollmentDetails from './components/EnrollmentDetails.js';
 import SemesterEnrollment from './components/SemesterEnrollment.js';
+import GradeForm from './components/GradeForm.js';
+import ProtectedRoute from './components/ProtectedRoute.js';
 
 function App() {
   const services3 = [
     { title: "Student Form", description: "Student Form"},
-    { title: "Semester Form", description: "Semester Form" },
+    
     { title: "Semester Enrollment", description: "Semester Enrollment"},
+    { title: "Semester Form", description: "Semester Form" },
     { title: "Notifications", description: "Send important updates to students."}
   ];
 
@@ -31,21 +34,30 @@ function App() {
     <Router>
       <Routes>
         <Route path="/" element={<AdminLogin/>}/>
-        <Route path='/admin-dashboard' element={<AdminDashboard/>}/>
-        <Route path='/admin-dashboard/faculty-mgmt' element={<FacultyMgmt/>}/>  
-        <Route path='/admin-dashboard/student-mgmt' element={<StudentMgmt/>}/>  
-        <Route path='/admin-dashboard/course-mgmt' element={<CourseMgmt/>}/>
-        <Route path="/admin-dashboard/course-mgmt/course-spec/:courseId/:regulationYear" element={<CourseSpec />} />
-        <Route path='/admin-dashboard/course-mgmt/create-course' element={<CreateCourse/>}/>
-        <Route path='/admin-dashboard/student-mgmt/create-login' element={<StudentLoginCr/>}/>
-        <Route path='/student-details-approval' element={<StudentDetailsApproval />}/>
-        <Route path='/student-grades-approval' element={<StudentGradesApproval />}/>
-        <Route path="/class-details" element={<ClassDetails />} />
-        <Route path="/enrollment-details" element={<EnrollmentDetails />} />
+        <Route
+          path="/admin-dashboard"
+          element={
+            <ProtectedRoute>
+              <AdminDashboard />
+            </ProtectedRoute>
+          }
+        />
+        <Route path='/admin-dashboard/faculty-mgmt' element={<ProtectedRoute role="admin"><FacultyMgmt/></ProtectedRoute>}/>  
+        <Route path='/admin-dashboard/student-mgmt' element={<ProtectedRoute role="admin"><StudentMgmt/></ProtectedRoute>}/>  
+        <Route path='/admin-dashboard/course-mgmt' element={<ProtectedRoute role="admin"><CourseMgmt/></ProtectedRoute>}/>
+        <Route path="/admin-dashboard/course-mgmt/course-spec/:courseId/:regulationYear" element={<ProtectedRoute role="admin"><CourseSpec /></ProtectedRoute>} />
+        <Route path='/admin-dashboard/course-mgmt/create-course' element={<ProtectedRoute role="admin"><CreateCourse/></ProtectedRoute>}/>
+        <Route path='/admin-dashboard/student-mgmt/create-login' element={<ProtectedRoute role="admin"><StudentLoginCr/></ProtectedRoute>}/>
+        <Route path='/student-dashboard/semforms' element={<ProtectedRoute role="student"><GradeForm/></ProtectedRoute>}/>
+        
+        <Route path='/student-details-approval' element={<ProtectedRoute role="admin"><StudentDetailsApproval /></ProtectedRoute>}/>
+        <Route path='/student-grades-approval' element={<ProtectedRoute role="admin"><StudentGradesApproval /></ProtectedRoute>}/>
+        <Route path="/class-details" element={<ProtectedRoute role="admin"><ClassDetails /></ProtectedRoute>} />
+        <Route path="/enrollment-details" element={<ProtectedRoute role="admin"><EnrollmentDetails /></ProtectedRoute>} />
         <Route path="/student-login" element={<StudentLogin/>}/>
-        <Route path="/student-dashboard" element={<StudentDashboard services={services3}/>}/>
-        <Route path="/student-dashboard/semforms" element={<SemesterEnrollment/>}/>
-        <Route path="/student-form" element={<StudentForm/>}/>
+        <Route path="/student-dashboard" element={<ProtectedRoute role="student"><StudentDashboard services={services3}/></ProtectedRoute>}/>
+        <Route path="/semester-enroll" element={<ProtectedRoute role="student"><SemesterEnrollment/></ProtectedRoute>}/>
+        <Route path="/student-form" element={<ProtectedRoute role="student"><StudentForm/></ProtectedRoute>}/>
       </Routes> 
     </Router>
   );

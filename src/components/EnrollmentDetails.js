@@ -16,6 +16,7 @@ const EnrollmentDetails = () => {
   const [currentPagePending, setCurrentPagePending] = useState(1); // Pagination for pending students
   const [studentsPerPage] = useState(5); // Number of students per page
   const { branch, regulation, from_year, to_year, _class } = location.state;
+  const [course_id,setCourseId] = useState([]);
 
   // Fetch semester numbers from the database
   useEffect(() => {
@@ -23,11 +24,12 @@ const EnrollmentDetails = () => {
       try {
         const response = await axios.get("http://localhost:5000/get-semester-numbers", {
           params: {
-            course_name: "MCA", // Replace with dynamic value if needed
-            regulation: "2023", // Replace with dynamic value if needed
+            course_name: branch, // Replace with dynamic value if needed
+            regulation: regulation, // Replace with dynamic value if needed
           },
         });
         setSemesters(response.data.semesters); // Update state with fetched semesters
+        setSelectedSemester(response.data.semesters[0]);
       } catch (error) {
         console.error("Error fetching semesters:", error);
       }
@@ -70,6 +72,23 @@ const EnrollmentDetails = () => {
     setCurrentPageEnrolled(1); // Reset pagination for enrolled students
     setCurrentPagePending(1); // Reset pagination for pending students
   };
+
+  const getCourseId = async () => {
+    try {
+      const response = await axios.get("http://localhost:5000/get-course-id", {
+        params: {
+          course_name: branch // Replace with the actual course name or variable
+        }
+      });
+      if(response){
+        setCourseId(response.data.course._id);
+      }
+      
+    } catch (error) {
+      console.error("Error fetching course Id:", error);
+    }
+  };
+  getCourseId();
 
   // Filter students by semester
   const enrolledStudents = students.filter(
@@ -270,6 +289,13 @@ const EnrollmentDetails = () => {
                   ) : (
                     <p>No Students</p>
                   )}
+                </Col>
+                <Col>
+                  <Button className="float-end" onClick={()=>{
+                    
+                    navigate(`/admin-dashboard/course-mgmt/course-spec/${course_id}/${regulation}`);
+                  }
+                    }>View Semester Details</Button>
                 </Col>
               </Row>
 

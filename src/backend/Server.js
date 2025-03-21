@@ -1659,7 +1659,31 @@ app.post('/reject-student-details',async(req,res)=>{
   }
 })
 
+app.get('/get-course-id',async(req,res)=>{
+  try{
+  const {course_name} = req.query;
+  console.log(course_name);
+  if (!course_name ) {
+    return res.status(400).json({ message: "course_name is required" });
+  }
 
+  // Find the course by course_name, year, and semester number
+  const course = await Course.findOne(
+    {
+      course_name,
+    }
+  );
+  if (!course) {
+    return res.status(404).json({ message: "Course not found" });
+  }
+
+  // Send response
+  res.status(200).json({ course});
+  } catch (error) {
+    console.error("Error fetching semesters:", error);
+    res.status(500).json({ message: "Internal server error" });
+  }
+})
 
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => console.log(`Server running on http://localhost:${PORT}`));

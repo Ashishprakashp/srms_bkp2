@@ -35,7 +35,25 @@ export default function FacultyLoginCr() {
 
     // Update the useEffect block in FacultyLoginCr component
 // Update the useEffect block to match CourseMgmt's authentication pattern
-// Remove sessionCheck and only keep backend verification  
+useEffect(() => {
+    const verifyAuth = async () => {
+        try {
+            const response = await axios.get('http://localhost:5000/check-auth', {
+                withCredentials: true
+            });
+            
+            if (!response.data.authenticated) {
+                navigate('/');
+            }
+        } catch (error) {
+            navigate('/');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    verifyAuth();
+}, [navigate]);  // Remove sessionCheck and only keep backend verification  
 
     const getTimestamp = () => new Date().toISOString().replace(/[-T:]/g, "_").split(".")[0];
 

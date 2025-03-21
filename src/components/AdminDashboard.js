@@ -9,31 +9,9 @@ import axios from 'axios';
 const AdminDashboard = () => {
   const navigate = useNavigate();
   const [showLogoutModal, setShowLogoutModal] = useState(false);
-  const [loading, setLoading] = useState(true);
-  const [user, setUser] = useState(null);
   const imageUrl = "./res/card_bg_1.jpg";
 
-  useEffect(() => {
-    const verifySession = async () => {
-      try {
-        const response = await axios.get('http://localhost:5000/check-auth', {
-          withCredentials: true
-        });
-        
-        if (response.data.authenticated) {
-          setUser(response.data.user);
-        } else {
-          navigate('/', { replace: true }); // Replace history entry
-        }
-      } catch (error) {
-        navigate('/', { replace: true }); // Replace history entry
-      } finally {
-        setLoading(false);
-      }
-    };
   
-    verifySession();
-  }, [navigate]);
 
 
 
@@ -48,15 +26,7 @@ const handleLogout = async () => {
   }
 };
 
-  if (loading) {
-    return (
-      <div className="d-flex justify-content-center align-items-center vh-100">
-        <Spinner animation="border" role="status">
-          <span className="visually-hidden">Loading...</span>
-        </Spinner>
-      </div>
-    );
-  }
+  
 
   return (
     <>
@@ -67,7 +37,7 @@ const handleLogout = async () => {
         <div className='main-content-ad-dboard flex-grow-1'>
           <div className="p-4">
             <div className="d-flex justify-content-between align-items-center mb-4">
-              <h1>Welcome {user?.username}</h1>
+              {/* <h1>Welcome {user?.username}</h1> */}
             </div>
 
             {showLogoutModal && (
