@@ -19,6 +19,10 @@ import fs from 'fs';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import { Await } from 'react-router-dom';
+import axios from 'axios';
+import StudentGrades from './schemas/StudentGrade.js';
+import Enrollment from './schemas/Enrollment.js';
+import GradesEnrollment from './schemas/GradesEnrollment.js';
 
 
 // Get the directory name
@@ -897,7 +901,9 @@ app.get('/student/:studentId', async (req, res) => {
       can_fill: student.can_fill,
       facultyAdvisor: student.facultyAdvisor,
       can_enroll: student.can_enroll,
-      enrolled: student.enrolled
+      enrolled: student.enrolled,
+      can_fill_grades: student.can_fill_grades,
+      grades_filled: student.grades_filled
     });
   } catch (error) {
     console.error('Error fetching student details:', error);
@@ -1161,9 +1167,15 @@ app.post("/student", uploadMiddleware, async (req, res) => {
 
 app.post('/enable-student-enroll',async(req,res)=>{
   try{
-    const {register,sem_no} = req.body;
-    const response = await StudentAcc.updateOne({studentId:register},{$set:{can_enroll:sem_no,enrolled:0}});
-    res.status(200).json({ message: "Student enabled successfully!"});
+    const {register,sem_no,grades} = req.body;
+    if(grades){
+      const response = await StudentAcc.updateOne({studentId:register},{$set:{can_fill_grades:sem_no,grades_filled:"0"}});
+      res.status(200).json({ message: "Student Grade Filling enabled successfully!"});
+    }else{
+      const response = await StudentAcc.updateOne({studentId:register},{$set:{can_enroll:sem_no,enrolled:"0"}});
+      res.status(200).json({ message: "Student enabled successfully!"});
+    }
+    
   }catch(error){
     console.error("Error processing request:", error);
     res.status(400).json({
@@ -1175,9 +1187,15 @@ app.post('/enable-student-enroll',async(req,res)=>{
 
 app.post('/disable-student-enroll',async(req,res)=>{
   try{
-    const {register,sem_no} = req.body;
-    const response = await StudentAcc.updateOne({studentId:register},{$set:{can_enroll:0,enrolled:0}});
-    res.status(200).json({ message: "Student disabled successfully!"});
+    const {register,sem_no,grades} = req.body;
+    if(grades){
+      const response = await StudentAcc.updateOne({studentId:register},{$set:{can_fill_grades:"0",grades_filled:"0"}});
+      res.status(200).json({ message: "Student Grade Filling disabled successfully!"});
+    }else{
+      const response = await StudentAcc.updateOne({studentId:register},{$set:{can_enroll:"0",enrolled:"0"}});
+      res.status(200).json({ message: "Student disabled successfully!"});
+    }
+    
   }catch(error){
     console.error("Error processing request:", error);
     res.status(400).json({
@@ -1271,19 +1289,52 @@ app.get("/semester-details", async (req, res) => {
 //Student enrolling to a semester
 app.post('/student/enroll/:studentId/:semesterNumber', async (req, res) => {
   const { studentId, semesterNumber } = req.params;
+  const {course_name,year,sem_no,batch} = req.body;
   console.log(req.params);
   try {
     // Step 1: Update the student's enrollment status
     const result = await StudentAcc.updateOne(
       { studentId }, // Query to find the student
-      { $set: { enrolled: semesterNumber, can_enroll: 0 } } // Update fields
+      { $set: { enrolled: sem_no, can_enroll: 0 } } // Update fields
     );
 
     // Step 2: Check if the student was found and updated
     if (result.matchedCount === 0) {
       return res.status(404).json({ message: 'Student not found' });
     }
+    //Update the StudentGrade and StudentCourse Collections during an enrollment
+    const subjects = await axios.get("http://localhost:5000/semester-details",{
+      withCredentials: true,
+      params: {
+        course_name: course_name,
+        year: year,
+        sem_no: Number(sem_no.split(" ")[0]),
+      
+      },
+  });
+    console.log("Subjects: "+subjects.data.subjects);
 
+    const enrolledCourses = subjects.data.subjects.map((subject) => ({
+      courseCode: subject.subject_code, // Use subject_code as the unique identifier
+      semester: semesterNumber,
+      confirmation: false,
+      grade: null,
+      isReEnrolled: false,
+    }));
+    // Step 1: Remove existing courses with the same courseCode
+await StudentGrades.updateOne(
+  { studentId, branch: course_name, regulation: year, batch },
+  { $pull: { enrolledCourses: { courseCode: { $in: enrolledCourses.map((c) => c.courseCode) } } } }
+);
+
+// Step 2: Add the new courses
+const studentGradeUpdate = await StudentGrades.findOneAndUpdate(
+  { studentId, branch: course_name, regulation: year, batch },
+  { $push: { enrolledCourses: { $each: enrolledCourses } } },
+  { upsert: true, new: true, setDefaultsOnInsert: true }
+);
+    
+    console.log('StudentGrades updated:', studentGradeUpdate);
     // Step 3: Fetch the updated student data
     const updatedStudent = await StudentAcc.findOne({ studentId });
 
@@ -1293,6 +1344,67 @@ app.post('/student/enroll/:studentId/:semesterNumber', async (req, res) => {
     console.error('Error enrolling student:', error);
     res.status(500).json({ message: 'Internal server error' });
   }
+});
+
+app.get("/get-enrollment-data", async (req, res) => {
+  const { branch, regulation, from_year, to_year, _class, sem_no } = req.query;
+  console.log(req.query);
+  try {
+    // Find the enrollment record matching the criteria
+    const enrollment = await Enrollment.findOne({
+      branch,
+      regulation,
+      batch: `${from_year}-${to_year}`,
+      semester: sem_no,
+    });
+    console.log("Fetch enrollment: "+enrollment.data);
+    if (!enrollment) {
+      return res.status(200).json(null);
+    }
+
+    // Extract the session (month and year) and status
+    const [month, year] = enrollment.session.split(" ");
+    const status = enrollment.status;
+
+    // Return the data
+    res.status(200).json({ month, year, status });
+  } catch (error) {
+    console.error("Error fetching enrollment data:", error);
+    res.status(500).json({ message: "Internal server error" });
+  }
+});
+
+app.post('/admin/set-enrollment', async (req, res) => {
+  const { branch, regulation, from_year, to_year, sem_no,session ,initiated_by,status,grades} = req.body;
+
+  if(grades){
+    try {
+      const gradesenrollment = await GradesEnrollment.findOneAndUpdate(
+          { branch, regulation, batch:from_year+"-"+to_year, semester: sem_no},
+          { $set: {session:session , status: status, initiated_by: initiated_by, initiated_time: Date.now() } },
+          { new: true, upsert: true }
+      );
+
+      res.status(200).json({ message: "Grades Enrollment updated successfully", gradesenrollment });
+  } catch (error) {
+      console.error("Error updating grades enrollment:", error);
+      res.status(500).json({ message: "Internal server error" });
+  }
+  }else{
+    try {
+      const enrollment = await Enrollment.findOneAndUpdate(
+          { branch, regulation, batch:from_year+"-"+to_year, semester: sem_no},
+          { $set: {session:session , status: status, initiated_by: initiated_by, initiated_time: Date.now() } },
+          { new: true, upsert: true }
+      );
+
+      res.status(200).json({ message: "Enrollment updated successfully", enrollment });
+  } catch (error) {
+      console.error("Error updating enrollment:", error);
+      res.status(500).json({ message: "Internal server error" });
+  }
+  }
+  
 });
 
 //Revoke set of students
@@ -1317,18 +1429,32 @@ app.post("/student/enrollment/revoke-all", async (req, res) => {
 //Enable set of students
 app.post("/student/enrollment/enable-all/:semesterNumber", async (req, res) => {
   try {
-    const { branch, year, from_year, to_year, _class } = req.body;
+    const { branch, year, from_year, to_year, _class ,sess_month,sess_year,grades} = req.body;
     const {semesterNumber}  = req.params;
-    // Update students matching the criteria
+
+    if(grades){
+      const updatedStudents = await StudentAcc.updateMany(
+        { branch:branch, regulation:year, from_year:from_year, to_year:to_year, _class:_class },
+        { $set: { grades_filled: "0", can_fill_grades: semesterNumber } }
+      );
+      if(updatedStudents){
+        console.log("Enabled all!"+updatedStudents.length);
+      }
+      res.status(200).json({ message: "Grade Enrollment enabled successfully", updatedStudents });
+    
+    }else{
+      // Update students matching the criteria
     const updatedStudents = await StudentAcc.updateMany(
       { branch:branch, regulation:year, from_year:from_year, to_year:to_year, _class:_class },
-      { $set: { enrolled: 0, can_enroll: semesterNumber } }
+      { $set: { enrolled: 0, can_enroll: semesterNumber+" "+sess_month+" "+sess_year } }
     );
     if(updatedStudents){
       console.log("Enabled all!"+updatedStudents.length);
     }
     res.status(200).json({ message: "Enrollment enabled successfully", updatedStudents });
-  } catch (error) {
+  
+    }
+    } catch (error) {
     res.status(500).json({ message: "Error enabling enrollments", error });
   }
 });
@@ -1336,18 +1462,32 @@ app.post("/student/enrollment/enable-all/:semesterNumber", async (req, res) => {
 //Disable a set of students
 app.post("/student/enrollment/disable-all/:semesterNumber", async (req, res) => {
   try {
-    const { branch, year, from_year, to_year, _class } = req.body;
+    const { branch, year, from_year, to_year, _class ,grades} = req.body;
     const {semesterNumber}  = req.params;
-    // Update students matching the criteria
-    const updatedStudents = await StudentAcc.updateMany(
-      { branch:branch, regulation:year, from_year:from_year, to_year:to_year, _class:_class },
-      { $set: { enrolled: 0, can_enroll: 0 } }
-    );
-    if(updatedStudents){
-      console.log("Disabled all!"+updatedStudents.length);
+
+    if(grades){
+      const updatedStudents = await StudentAcc.updateMany(
+        { branch:branch, regulation:year, from_year:from_year, to_year:to_year, _class:_class },
+        { $set: { grades_filled: "0", can_fill_grades: "0" } }
+      );
+      if(updatedStudents){
+        console.log("Disabled all!"+updatedStudents.length);
+      }
+      res.status(200).json({ message: "Enrollment disabled successfully", updatedStudents });
+    
+    }else{
+      const updatedStudents = await StudentAcc.updateMany(
+        { branch:branch, regulation:year, from_year:from_year, to_year:to_year, _class:_class },
+        { $set: { enrolled: "0", can_enroll: "0" } }
+      );
+      if(updatedStudents){
+        console.log("Disabled all!"+updatedStudents.length);
+      }
+      res.status(200).json({ message: "Enrollment disabled successfully", updatedStudents });
+    
     }
-    res.status(200).json({ message: "Enrollment disabled successfully", updatedStudents });
-  } catch (error) {
+    // Update students matching the criteria
+    } catch (error) {
     res.status(500).json({ message: "Error disabling enrollments", error });
   }
 });
@@ -1618,8 +1758,11 @@ app.post('/save-page-data', uploadMiddleware, async (req, res) => {
 app.post('/enable-student',async(req,res)=>{
   try{
     const {register} = req.body;
-    const response = await StudentAcc.updateOne({studentId:register},{$set:{can_fill:1,filled:0}});
-    res.status(200).json({ message: "Student enabled successfully!"});
+    
+      const response = await StudentAcc.updateOne({studentId:register},{$set:{can_fill:1,filled:0}});
+      res.status(200).json({ message: "Student enabled successfully!"});
+    
+    
   }catch(error){
     console.error("Error processing request:", error);
     res.status(400).json({
@@ -1631,9 +1774,12 @@ app.post('/enable-student',async(req,res)=>{
 
 app.post('/disable-student',async(req,res)=>{
   try{
-    const {register} = req.body;
-    const response = await StudentAcc.updateOne({studentId:register},{$set:{can_fill:0,filled:0}});
-    res.status(200).json({ message: "Student disabled successfully!"});
+    const {register,sem_no} = req.body;
+    
+      const response = await StudentAcc.updateOne({studentId:register},{$set:{can_fill:0,filled:0}});
+      res.status(200).json({ message: "Student disabled successfully!"});
+    
+    
   }catch(error){
     console.error("Error processing request:", error);
     res.status(400).json({

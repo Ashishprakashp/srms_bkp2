@@ -1,5 +1,6 @@
 import mongoose from "mongoose";
 import subjectSchema from "./subject.js";
+import { type } from "@testing-library/user-event/dist/type/index.js";
 
 const StudentAccSchema = new mongoose.Schema({
     studentId: {
@@ -67,20 +68,24 @@ const StudentAccSchema = new mongoose.Schema({
         type: [subjectSchema]
       },
       can_enroll:{
-        type: Number,
-        default:0,
+        type: String,
+        default:"0",
       },
       enrolled:{
-        type: Number,
-        default:0,
+        type: String,
+        default:"0",
+      },
+      can_fill_grades:{
+        type:String,
+        default:"0",
       },
       grades_filled:{
-        type: Number,
-        default: 0,
+        type: String,
+        default: "0",
       },
       grades_approved:{
-        type: Number,
-        default: 0,
+        type: String,
+        default: "0",
       },
       grades_reason:{
         type: String,

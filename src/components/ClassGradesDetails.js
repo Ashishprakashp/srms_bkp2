@@ -5,7 +5,7 @@ import TitleBar from "./TitleBar.js";
 import StudentSideBar from "./StudentSideBar.js";
 import axios from "axios";
 
-const EnrollmentDetails = () => {
+const ClassGradesDetails = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const [semesters, setSemesters] = useState([]);
@@ -35,7 +35,7 @@ const EnrollmentDetails = () => {
         });
         setSemesters(response.data.semesters);
         setSelectedSemester(response.data.semesters[0]);
-
+        
         // Initialize sessionData and enrollmentStatus for each semester
         const initialSessionData = {};
         const initialEnrollmentStatus = {};
@@ -67,12 +67,14 @@ const EnrollmentDetails = () => {
             to_year,
             _class,
             sem_no: selectedSemester,
+
           },
         });
 
         if (response.data) {
           const { month, year, status } = response.data;
-
+          console.log("MONTH: "+month);
+          console.log("YEAR: "+year);
           // Update sessionData and enrollmentStatus for the selected semester
           setSessionData((prevData) => ({
             ...prevData,
@@ -133,7 +135,6 @@ const EnrollmentDetails = () => {
             student._class === _class
         );
         setStudents(filteredStudents);
-        console.log(filteredStudents);
         setLoading(false);
       } catch (error) {
         console.error("Error fetching students:", error);
@@ -207,7 +208,7 @@ const EnrollmentDetails = () => {
             session,
             initiated_by: sessionStorage.getItem("user"),
             status: "open",
-            grades:false,
+            grades:true,
           }, { withCredentials: true });
   
           await enableAll();
@@ -232,7 +233,7 @@ const EnrollmentDetails = () => {
             session,
             initiated_by: sessionStorage.getItem("user"),
             status: "complete",
-            grades:false,
+            grades:true
           }, { withCredentials: true });
           await disableAll();
           setEnrollmentStatus((prevStatus) => ({
@@ -261,13 +262,13 @@ const EnrollmentDetails = () => {
         _class,
         sess_month: month,
         sess_year: year,
-        grades:false
+        grades:true
       });
       setStudents((prevStudents) =>
         prevStudents.map((student) => ({
           ...student,
-          can_enroll: selectedSemester,
-          enrolled: 0,
+          can_fill_grades: selectedSemester,
+          grades_filled: '0',
         }))
       );
     } catch (error) {
@@ -284,14 +285,13 @@ const EnrollmentDetails = () => {
         from_year,
         to_year,
         _class,
-        grades:false
+        grades:true
       });
       setStudents((prevStudents) =>
         prevStudents.map((student) => ({
           ...student,
-          can_enroll: 0,
-          enrolled: 0,
-          grades:false
+          can_fill_grades: '0',
+          grades_filled: '0',
         }))
       );
     } catch (error) {
@@ -330,13 +330,13 @@ const EnrollmentDetails = () => {
         response = await axios.post("http://localhost:5000/enable-student-enroll", {
           register: registerno,
           sem_no: selectedSemester,
-          grades:false,
+          grades:true,
         });
       } else {
         response = await axios.post("http://localhost:5000/disable-student-enroll", {
           register: registerno,
           sem_no: 0,
-          grades:false,
+          grades:true,
         });
       }
 
@@ -344,7 +344,7 @@ const EnrollmentDetails = () => {
       setStudents((prevStudents) =>
         prevStudents.map((student) =>
           student.studentId === registerno
-            ? { ...student, can_enroll: val, enrolled: val ? val : 0 }
+            ? { ...student, can_fill_grades: val?selectedSemester:'0' }
             : student
         )
       );
@@ -367,11 +367,11 @@ const EnrollmentDetails = () => {
   }
 
   // Filter students by semester
-  const enrolledStudents = students.filter(
-    (student) => student.enrolled === selectedSemester
+  const gradeFilledStudents = students.filter(
+    (student) => student.grades_filled === selectedSemester
   );
   const pendingStudents = students.filter(
-    (student) => student.enrolled !== selectedSemester
+    (student) => student.grades_filled !== selectedSemester
   );
 
   // Pagination functions
@@ -414,47 +414,46 @@ const EnrollmentDetails = () => {
           {selectedSemester && (
             <>
               <Row>
-                <Col>
-                  <Form>
-                    <Row className="align-items-center">
-                      <Col>
-                        <FormGroup className="mb-3">
-                          <FormLabel>MONTH:</FormLabel>
-                          <FormSelect
-                            name="session_month"
-                            onChange={handleMonthChange}
-                            value={sessionData[selectedSemester]?.month || ""}
-                            disabled={isMonthDisabled}
-                          >
-                            <option value="">Select Month</option>
-                            <option value="NOV">NOV</option>
-                            <option value="APR">APR</option>
-                          </FormSelect>
-                        </FormGroup>
-                      </Col>
-                      <Col>
-                        <FormGroup className="mb-3">
-                          <FormLabel>YEAR:</FormLabel>
-                          <FormControl
-                            name="session_year"
-                            type="number"
-                            placeholder="YEAR"
-                            onChange={handleYearChange}
-                            value={sessionData[selectedSemester]?.year || ""}
-                            disabled={isYearDisabled}
-                          />
-                        </FormGroup>
-                      </Col>
-                    </Row>
-                  </Form>
-                </Col>
-              </Row>
-
+                              <Col>
+                                <Form>
+                                  <Row className="align-items-center">
+                                    <Col>
+                                      <FormGroup className="mb-3">
+                                        <FormLabel>MONTH:</FormLabel>
+                                        <FormSelect
+                                          name="session_month"
+                                          onChange={handleMonthChange}
+                                          value={sessionData[selectedSemester]?.month || ""}
+                                          disabled={true}
+                                        >
+                                          <option value="">Select Month</option>
+                                          <option value="NOV">NOV</option>
+                                          <option value="APR">APR</option>
+                                        </FormSelect>
+                                      </FormGroup>
+                                    </Col>
+                                    <Col>
+                                      <FormGroup className="mb-3">
+                                        <FormLabel>YEAR:</FormLabel>
+                                        <FormControl
+                                          name="session_year"
+                                          type="number"
+                                          placeholder="YEAR"
+                                          onChange={handleYearChange}
+                                          value={sessionData[selectedSemester]?.year || ""}
+                                          disabled={true}
+                                        />
+                                      </FormGroup>
+                                    </Col>
+                                  </Row>
+                                </Form>
+                              </Col>
+                            </Row>
               {/* Enrolled Students Table */}
               <Row className="mb-4">
                 <Col>
-                  <h2>Enrolled Students (Semester {selectedSemester})</h2>
-                  {enrolledStudents.length > 0 ? (
+                  <h2>Grades Filled Students (Semester {selectedSemester})</h2>
+                  {gradeFilledStudents.length > 0 ? (
                     <>
                       <button className="btn btn-danger float-end mb-5" onClick={revokeAll}>Revoke All</button>
                       <Table striped bordered hover>
@@ -472,7 +471,7 @@ const EnrollmentDetails = () => {
                           </tr>
                         </thead>
                         <tbody>
-                          {getCurrentStudents(enrolledStudents, currentPageEnrolled).map((student) => (
+                          {getCurrentStudents(gradeFilledStudents, currentPageEnrolled).map((student) => (
                             <tr key={student.studentId}>
                               <td>{student.studentId}</td>
                               <td>{student.name}</td>
@@ -480,8 +479,8 @@ const EnrollmentDetails = () => {
                               <td>{student.regulation}</td>
                               <td>{student.from_year} - {student.to_year}</td>
                               <td>{student._class}</td>
-                              <td>{student.can_enroll!=='0' ? "Yes" : "No"}</td>
-                              <td>{student.enrolled!=='0' ? "Yes" : "No"}</td>
+                              <td>{student.can_enroll ? "Yes" : "No"}</td>
+                              <td>{student.enrolled ? "Yes" : "No"}</td>
                               <td>
                                 <Button variant="primary" onClick={() => enableStudent(false, student.studentId)}>
                                   Revoke
@@ -492,7 +491,7 @@ const EnrollmentDetails = () => {
                         </tbody>
                       </Table>
                       <Pagination>
-                        {[...Array(Math.ceil(enrolledStudents.length / studentsPerPage)).keys()].map((number) => (
+                        {[...Array(Math.ceil(gradeFilledStudents.length / studentsPerPage)).keys()].map((number) => (
                           <Pagination.Item
                             key={number + 1}
                             active={number + 1 === currentPageEnrolled}
@@ -512,7 +511,7 @@ const EnrollmentDetails = () => {
               {/* Enrollment-Pending Students Table */}
               <Row className="mb-4">
                 <Col>
-                  <h2>Enrollment-Pending Students (Semester {selectedSemester})</h2>
+                  <h2>Grade-Flling-Pending Students (Semester {selectedSemester})</h2>
                   {pendingStudents.length > 0 ? (
                     <>
                       <button className="btn btn-success float-end ms-5 me-4 mb-5" onClick={enableAll}>Enable All</button>
@@ -527,7 +526,7 @@ const EnrollmentDetails = () => {
                             <th>Batch</th>
                             <th>Class</th>
                             <th>isEnabled?</th>
-                            <th>isEnrolled?</th>
+                            <th>isFilled?</th>
                             <th>Action</th>
                           </tr>
                         </thead>
@@ -540,10 +539,10 @@ const EnrollmentDetails = () => {
                               <td>{student.regulation}</td>
                               <td>{student.from_year} - {student.to_year}</td>
                               <td>{student._class}</td>
-                              <td>{student.can_enroll!=='0' ? "Yes" : "No"}</td>
-                              <td>{student.enrolled!=='0' ? "Yes" : "No"}</td>
+                              <td>{student.can_fill_grades==="0" ? "No" : "Yes"}</td>
+                              <td>{student.grades_filled==="0" ? "No" : "Yes"}</td>
                               <td>
-                                {student.can_enroll ? (
+                                {student.can_fill_grades!=='0' ? (
                                   <button className="btn btn-danger" onClick={() => enableStudent(false, student.studentId)}>
                                     Disable
                                   </button>
@@ -578,7 +577,7 @@ const EnrollmentDetails = () => {
               {/* Enrollment Button */}
               <Row className="ms-4 me-4">
                 <Button className="w-100 py-2" onClick={handleEnrollment}>
-                  {enrollmentStatus[selectedSemester] ? "Close Enrollment" : "Open Enrollment"}
+                  {enrollmentStatus[selectedSemester] ? "Close Grades Enrollment" : "Open Grades Enrollment"}
                 </Button>
               </Row>
 
@@ -613,4 +612,4 @@ const EnrollmentDetails = () => {
   );
 };
 
-export default EnrollmentDetails;
+export default ClassGradesDetails;

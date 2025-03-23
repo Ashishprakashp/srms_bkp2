@@ -14,12 +14,14 @@ import StudentLogin from './components/StudentLogin.js';
 import StudentDashboard from './components/StudentDashboard.js';
 import StudentForm from './components/StudentForm.js';
 import StudentDetailsApproval from './components/StudentDetailsApproval.js';
-import StudentGradesApproval from './components/StudentGradesApproval.js';
+import StudentEnrollment from './components/StudentEnrollment.js';
 import ClassDetails from './components/ClassDetails.js';
 import EnrollmentDetails from './components/EnrollmentDetails.js';
 import SemesterEnrollment from './components/SemesterEnrollment.js';
 import GradeForm from './components/GradeForm.js';
 import ProtectedRoute from './components/ProtectedRoute.js';
+import StudentGradesApproval from './components/StudentGradesApproval.js';
+import ClassGradesDetails from './components/ClassGradesDetails.js';
 
 function App() {
   const services3 = [
@@ -51,7 +53,9 @@ function App() {
         <Route path='/student-dashboard/semforms' element={<ProtectedRoute role="student"><GradeForm/></ProtectedRoute>}/>
         
         <Route path='/student-details-approval' element={<ProtectedRoute role="admin"><StudentDetailsApproval /></ProtectedRoute>}/>
+        <Route path='/class-grades-details' element={<ProtectedRoute role="admin"><ClassGradesDetails /></ProtectedRoute>}/>
         <Route path='/student-grades-approval' element={<ProtectedRoute role="admin"><StudentGradesApproval /></ProtectedRoute>}/>
+        <Route path='/student-enrollment' element={<ProtectedRoute role="admin"><StudentEnrollment /></ProtectedRoute>}/>
         <Route path="/class-details" element={<ProtectedRoute role="admin"><ClassDetails /></ProtectedRoute>} />
         <Route path="/enrollment-details" element={<ProtectedRoute role="admin"><EnrollmentDetails /></ProtectedRoute>} />
         <Route path="/student-login" element={<StudentLogin/>}/>

@@ -12,6 +12,7 @@ const SemesterEnrollment = () => {
   const [semesterData, setSemesterData] = useState([]);
   const [semesterNumber, setSemesterNumber] = useState(null);
   const [showModal, setShowModal] = useState(false); // Modal state
+  const [studentData,setStudentData] = useState([]);
   const branch = sessionStorage.getItem('branch');
   const isBtech = branch.startsWith('BTECH');
 
@@ -23,15 +24,16 @@ const SemesterEnrollment = () => {
           withCredentials: true,
         });
         const { can_enroll } = response.data;
-
-        setFormEnabled(can_enroll !== 0);
-        if (can_enroll !== 0) {
+        setStudentData(response.data);
+        setFormEnabled(can_enroll !== "0");
+        const sem_no = can_enroll ? can_enroll.split(" ")[0] : null;
+        if (can_enroll !== "0") {
           const semester_response = await axios.get("http://localhost:5000/semester-details", {
             withCredentials: true,
             params: {
               course_name: branch,
               year: response.data.regulation,
-              sem_no: can_enroll,
+              sem_no: sem_no,
             },
           });
           setSemesterData(semester_response.data.subjects);
@@ -59,7 +61,14 @@ const SemesterEnrollment = () => {
   const enrollForSemester = async () => {
     try {
       const studentId = sessionStorage.getItem('student');
-      await axios.post(`http://localhost:5000/student/enroll/${studentId}/${semesterNumber}`, {}, {
+      const {branch,regulation,from_year,to_year} = studentData;
+      const batch = from_year+"-"+to_year;
+      await axios.post(`http://localhost:5000/student/enroll/${studentId}/${semesterNumber}`, {
+        course_name: branch,
+        year: regulation,
+        sem_no: semesterNumber,
+        batch: batch
+      }, {
         withCredentials: true,
       });
       setShowModal(true); // Show success modal

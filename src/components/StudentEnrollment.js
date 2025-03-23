@@ -6,7 +6,7 @@ import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import './StudentDetailsApproval.css'; // Import the new CSS file
 
-const StudentGradesApproval = () => {
+const StudentEnrollment = () => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [studentGroups, setStudentGroups] = useState([]);
@@ -64,7 +64,7 @@ const StudentGradesApproval = () => {
 
   const handleEnable = async (group) => {
     try {
-      const response = await axios.post('http://localhost:5000/student-class/update-can-fill', {
+      const response = await axios.post('http://localhost:5000/student-class/update-can-enroll', {
         branch: group.branch,
         regulation: group.regulation,
         from_year: group.from_year,
@@ -85,7 +85,7 @@ const StudentGradesApproval = () => {
 
   const handleViewClassDetails = (group) => {
     // Navigate to the new page with class details
-    navigate('/class-grades-details', {
+    navigate('/enrollment-details', {
       state: {
         branch: group.branch,
         regulation: group.regulation,
@@ -139,9 +139,9 @@ const StudentGradesApproval = () => {
                         Class: {group._class}
                       </Card.Subtitle>
                       <Card.Text>Total Students: {group.students.length}</Card.Text>
-                      <Button variant="primary" onClick={() => handleEnable(group)}>
-                        Enable
-                      </Button>
+                      {/* <Button variant="primary" onClick={() => handleEnable(group)}>
+                        Enable Enrollment
+                      </Button> */}
                       <Button variant="secondary" className="ms-4" onClick={() => handleViewClassDetails(group)}>
                         View Details
                       </Button>
@@ -157,4 +157,4 @@ const StudentGradesApproval = () => {
   );
 };
 
-export default StudentGradesApproval;
+export default StudentEnrollment;
