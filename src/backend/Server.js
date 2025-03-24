@@ -903,7 +903,8 @@ app.get('/student/:studentId', async (req, res) => {
       can_enroll: student.can_enroll,
       enrolled: student.enrolled,
       can_fill_grades: student.can_fill_grades,
-      grades_filled: student.grades_filled
+      grades_filled: student.grades_filled,
+      class: student._class,
     });
   } catch (error) {
     console.error('Error fetching student details:', error);
@@ -1830,6 +1831,292 @@ app.get('/get-course-id',async(req,res)=>{
     res.status(500).json({ message: "Internal server error" });
   }
 })
+
+// Grades api
+app.post('/student/update-grades', async (req, res) => {
+  try {
+    const { studentId, branch, regulation, batch, enrolledCourses } = req.body;
+
+    // Validate required fields
+    if (!studentId || !branch || !regulation || !batch || !enrolledCourses) {
+      return res.status(400).json({ error: 'Missing required fields' });
+    }
+
+    // Validate each course
+    const validGrades = ['O', 'A+', 'A', 'B+', 'B', 'C', 'RA/U', null];
+    for (const course of enrolledCourses) {
+      if (!course.courseCode || !course.semester) {
+        return res.status(400).json({ error: 'Course code and semester are required for all courses' });
+      }
+      if (course.grade && !validGrades.includes(course.grade)) {
+        return res.status(400).json({ error: `Invalid grade '${course.grade}' for course ${course.courseCode}` });
+      }
+    }
+
+    // Upsert the student record
+    const updatedRecord = await StudentGrades.findOneAndUpdate(
+      { studentId },
+      {
+        studentId,
+        branch,
+        regulation,
+        batch,
+        enrolledCourses,
+        lastUpdated: new Date()
+      },
+      { new: true, upsert: true }
+    );
+
+    res.status(200).json({
+      message: 'Student grades updated successfully',
+      data: updatedRecord
+    });
+
+  } catch (error) {
+    console.error('Error updating student grades:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Submit grades for a semester
+app.post('/student/submit-grades', async (req, res) => {
+  try {
+    const { studentId, semester, grades, submittedBy } = req.body;
+
+    // Validate input
+    if (!studentId || !semester || !grades || !submittedBy) {
+      return res.status(400).json({ error: 'Missing required fields' });
+    }
+
+    // Find the student record
+    const studentRecord = await StudentGrades.findOne({ studentId });
+    if (!studentRecord) {
+      return res.status(404).json({ error: 'Student record not found' });
+    }
+
+    const currentDate = new Date();
+    const validGrades = ['O', 'A+', 'A', 'B+', 'B', 'C', 'RA/U'];
+    const updates = [];
+
+    // Prepare updates for each course
+    for (const [courseCode, grade] of Object.entries(grades)) {
+      if (!validGrades.includes(grade)) {
+        return res.status(400).json({ error: `Invalid grade '${grade}' for course ${courseCode}` });
+      }
+
+      const courseIndex = studentRecord.enrolledCourses.findIndex(
+        c => c.courseCode === courseCode && c.semester === semester
+      );
+
+      if (courseIndex === -1) {
+        return res.status(400).json({ error: `Course ${courseCode} not found in semester ${semester}` });
+      }
+
+      updates.push({
+        [`enrolledCourses.${courseIndex}.grade`]: grade,
+        [`enrolledCourses.${courseIndex}.gradeSubmittedAt`]: currentDate,
+        [`enrolledCourses.${courseIndex}.gradeSubmittedBy`]: submittedBy
+      });
+    }
+
+    // Apply all updates
+    const updatedRecord = await StudentGrades.findOneAndUpdate(
+      { studentId },
+      {
+        $set: {
+          ...updates.reduce((acc, curr) => ({ ...acc, ...curr }), {}),
+          lastUpdated: currentDate
+        }
+      },
+      { new: true }
+    );
+
+    res.status(200).json({
+      message: 'Grades submitted successfully',
+      data: updatedRecord
+    });
+
+  } catch (error) {
+    console.error('Error submitting grades:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Confirm grades (for admin/faculty)
+app.post('/student/confirm-grades', async (req, res) => {
+  try {
+    const { studentId, semester, courseCodes, confirmedBy } = req.body;
+
+    // Validate input
+    if (!studentId || !semester || !courseCodes || !confirmedBy) {
+      return res.status(400).json({ error: 'Missing required fields' });
+    }
+
+    const currentDate = new Date();
+    const updates = [];
+
+    // Prepare confirmation updates
+    for (const courseCode of courseCodes) {
+      updates.push({
+        [`enrolledCourses.$[elem].gradeConfirmed`]: true,
+        [`enrolledCourses.$[elem].gradeConfirmedAt`]: currentDate,
+        [`enrolledCourses.$[elem].confirmation`]: true
+      });
+    }
+
+    // Apply updates with array filters
+    const updatedRecord = await StudentGrades.findOneAndUpdate(
+      { studentId },
+      {
+        $set: {
+          ...updates.reduce((acc, curr) => ({ ...acc, ...curr }), {}),
+          lastUpdated: currentDate
+        }
+      },
+      {
+        new: true,
+        arrayFilters: [{ 'elem.courseCode': { $in: courseCodes }, 'elem.semester': semester }]
+      }
+    );
+
+    res.status(200).json({
+      message: 'Grades confirmed successfully',
+      data: updatedRecord
+    });
+
+  } catch (error) {
+    console.error('Error confirming grades:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Get student grades
+app.get('/student/grades/:studentId', async (req, res) => {
+  try {
+    const { studentId } = req.params;
+
+    const studentGrades = await StudentGrades.findOne({ studentId });
+    if (!studentGrades) {
+      return res.status(404).json({ error: 'Student grades not found' });
+    }
+
+    res.status(200).json(studentGrades);
+  } catch (error) {
+    console.error('Error fetching student grades:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Get grades by semester
+app.get('/student/grades/:studentId/semester/:semester', async (req, res) => {
+  try {
+    const { studentId, semester } = req.params;
+
+    const studentGrades = await StudentGrades.findOne(
+      { studentId, 'enrolledCourses.semester': semester },
+      { 'enrolledCourses.$': 1 }
+    );
+
+    if (!studentGrades || !studentGrades.enrolledCourses.length) {
+      return res.status(404).json({ error: 'No courses found for this semester' });
+    }
+
+    res.status(200).json({
+      studentId,
+      semester,
+      courses: studentGrades.enrolledCourses
+    });
+  } catch (error) {
+    console.error('Error fetching semester grades:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+app.post('/submit-grades', upload.single('marksheet'), async (req, res) => {
+  try {
+    console.log('Request received at /submit-grades');
+  console.log('Request body:', req.body);
+  console.log('Uploaded file:', req.file);
+    const { studentId, semester, grades, calculatedGpa } = req.body;
+    
+    // Validate required fields
+    if (!studentId || !semester || !grades || !calculatedGpa) {
+      throw new Error('Missing required fields');
+    }
+
+    // Parse the grades JSON
+    const parsedGrades = JSON.parse(grades);
+    
+    // Find the student record
+    const studentRecord = await StudentGrades.findOne({ studentId });
+    
+    if (!studentRecord) {
+      return res.status(404).json({ error: 'Student record not found' });
+    }
+
+    let marksheetPath = null;
+
+    // Process file if uploaded
+    if (req.file) {
+      // Create uploads directory if it doesn't exist
+      const uploadDir = 'uploads/marksheets/';
+      if (!fs.existsSync(uploadDir)) {
+        fs.mkdirSync(uploadDir, { recursive: true });
+      }
+
+      // Generate unique filename
+      const fileExt = path.extname(req.file.originalname);
+      const filename = `${studentId}-${semester}-${Date.now()}${fileExt}`;
+      marksheetPath = path.join(uploadDir, filename);
+
+      // Write buffer to disk
+      fs.writeFileSync(marksheetPath, req.file.buffer);
+    }
+
+    // Update grades in enrolledCourses
+    studentRecord.enrolledCourses = studentRecord.enrolledCourses.map(course => {
+      if (course.semester.includes(semester) && parsedGrades[course.courseCode.trim()]) {
+        return {
+          ...course.toObject(),
+          grade: parsedGrades[course.courseCode.trim()],
+          gradeSubmittedAt: new Date()
+        };
+      }
+      return course;
+    });
+
+    // Add/update semester submission
+    studentRecord.semesterSubmissions = studentRecord.semesterSubmissions || {};
+    studentRecord.semesterSubmissions.set(semester, {
+      gpa: parseFloat(calculatedGpa),
+      marksheetPath: marksheetPath, // Store relative path
+      submissionDate: new Date(),
+      verified: false
+    });
+
+    // Save the updated record
+    await studentRecord.save();
+    const studentacc = await StudentAcc.updateOne(
+      { studentId },
+      { $set: { grades_filled: semester } }
+    );
+    res.status(200).json({ 
+      success: true,
+      message: 'Grades and marksheet submitted successfully',
+      filePath: marksheetPath // For debugging
+    });
+
+  } catch (error) {
+    console.error('Submission error:', error);
+    
+    res.status(500).json({ 
+      success: false,
+      message: 'Failed to submit grades',
+      error: error.message,
+      details: process.env.NODE_ENV === 'development' ? error.stack : undefined
+    });
+  }
+});
 
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => console.log(`Server running on http://localhost:${PORT}`));
