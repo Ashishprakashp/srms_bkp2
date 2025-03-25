@@ -73,7 +73,7 @@ const GradeForm = () => {
     const checkGradesStatus = async () => {
       try {
         const response = await axios.get(`http://localhost:5000/student/${studentId}`);
-        if (response.data.grades_filled === response.data.can_fill_grades) {
+        if (response.data.grades_filled!=='0' && response.data.can_fill_grades!=='0'&& response.data.grades_filled === response.data.can_fill_grades) {
           setGradesAlreadyFilled(true);
         }
       } catch (error) {
@@ -129,14 +129,7 @@ const GradeForm = () => {
     }
   };
 
-  if (gradesAlreadyFilled) {
-    return (
-      <div className="alert alert-info mt-4">
-        <i className="bi bi-info-circle-fill me-2"></i>
-        Grades for semester {student?.can_fill_grades} have already been submitted.
-      </div>
-    );
-  }
+  
 
   const handleFileChange = (e) => {
     const file = e.target.files[0];
@@ -178,6 +171,8 @@ const GradeForm = () => {
       
       if (response.data.success) {
         console.log("Grades submitted!");
+        alert("Grades Submitted Successfully!");
+        window.location.reload();
       }
     } catch (error) {
       console.log("Error: ",error);
@@ -223,7 +218,14 @@ const GradeForm = () => {
         <StudentSideBar />
         <div className="flex-grow-1 p-4 overflow-auto">
           <div className="container-fluid">
-            <div className="d-flex justify-content-between align-items-center mb-4">
+            {gradesAlreadyFilled ?(
+              <div className="alert alert-info mt-4">
+              <i className="bi bi-info-circle-fill me-2"></i>
+              Grades for semester {student?.can_fill_grades} have already been submitted.
+            </div>
+            ):(
+              <>
+              <div className="d-flex justify-content-between align-items-center mb-4">
               <h2 className="mb-0 text-primary">
                 <i className="bi bi-journal-bookmark-fill me-2"></i>
                 Semester {student?.can_fill_grades} Grade Submission
@@ -511,6 +513,10 @@ const GradeForm = () => {
                 )}
               </>
             )}
+            </>
+            )}
+            
+            
           </div>
         </div>
       </div>

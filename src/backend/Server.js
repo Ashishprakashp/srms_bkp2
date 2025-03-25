@@ -2098,7 +2098,7 @@ app.post('/submit-grades', upload.single('marksheet'), async (req, res) => {
     await studentRecord.save();
     const studentacc = await StudentAcc.updateOne(
       { studentId },
-      { $set: { grades_filled: semester } }
+      { $set: {can_fill_grades:0, grades_filled: semester } }
     );
     res.status(200).json({ 
       success: true,
@@ -2115,6 +2115,177 @@ app.post('/submit-grades', upload.single('marksheet'), async (req, res) => {
       error: error.message,
       details: process.env.NODE_ENV === 'development' ? error.stack : undefined
     });
+  }
+});
+
+// Get student grades
+app.get('/student-grades/:studentId/:semester', async (req, res) => {
+  try {
+    const { studentId, semester } = req.params;
+    
+    // Find the student's grades
+    const grades = await StudentGrades.findOne({ studentId });
+    
+    if (!grades) {
+      return res.status(404).json({ error: 'Student grades not found' });
+    }
+
+    // Convert Map to object if needed
+    const semesterSubmissions = grades.semesterSubmissions instanceof Map 
+      ? Object.fromEntries(grades.semesterSubmissions)
+      : grades.semesterSubmissions;
+
+    // Get semester data
+    const semesterData = semesterSubmissions[semester];
+    
+    if (!semesterData) {
+      return res.status(404).json({ error: `No data found for semester ${semester}` });
+    }
+
+    // Filter enrolled courses for the specified semester with non-null grades
+    const coursesWithGrades = grades.enrolledCourses.filter(course => 
+      course.semester.includes(semester) && course.grade !== null
+    );
+
+    // Prepare response
+    const response = {
+      studentId: grades.studentId,
+      semester,
+      gpa: semesterData.gpa,
+      submissionDate: semesterData.submissionDate,
+      verified: semesterData.verified,
+      courses: coursesWithGrades.map(course => ({
+        courseCode: course.courseCode,
+        courseName: course.courseName || '', // Add if available in your schema
+        grade: course.grade,
+        gradeSubmittedAt: course.gradeSubmittedAt
+      })),
+      marksheetPath: semesterData.marksheetPath
+    };
+
+    res.json(response);
+  } catch (error) {
+    console.error('Error fetching grade details:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Approve grades
+app.post('/admin/approve-grades', async (req, res) => {
+  try {
+    const { studentId, semester, approvedBy } = req.body;
+    const currentDate = new Date();
+
+    // Update semester submissions verification status
+    await StudentGrades.updateOne(
+      { studentId },
+      { 
+        $set: { 
+          [`semesterSubmissions.${semester}.verified`]: true,
+          [`semesterSubmissions.${semester}.verifiedBy`]: approvedBy,
+          [`semesterSubmissions.${semester}.verifiedAt`]: currentDate 
+        } 
+      }
+    );
+
+    // Update grade confirmation for each course in the semester
+    await StudentGrades.updateOne(
+      { studentId },
+      {
+        $set: {
+          "enrolledCourses.$[elem].gradeConfirmed": true,
+          "enrolledCourses.$[elem].gradeConfirmedAt": currentDate
+        }
+      },
+      {
+        arrayFilters: [
+          { "elem.semester": semester, "elem.grade": { $ne: null } }
+        ]
+      }
+    );
+
+    // Update student account status
+    await StudentAcc.updateOne(
+      { studentId },
+      { $set: { grades_approved: semester.toString() } }
+    );
+    
+    res.json({ 
+      success: true,
+      message: `Grades for semester ${semester} approved successfully`
+    });
+  } catch (error) {
+    console.error('Error approving grades:', error);
+    res.status(500).json({ 
+      success: false,
+      error: error.message,
+      message: 'Failed to approve grades'
+    });
+  }
+});
+
+// Reject grades
+app.post('/admin/reject-grades', async (req, res) => {
+  try {
+    const { studentId, semester, rejectedBy } = req.body;
+    
+    await StudentGrades.updateOne(
+      { studentId },
+      { 
+        $set: { 
+          [`semesterSubmissions.${semester}.verified`]: false,
+          [`semesterSubmissions.${semester}.rejectedBy`]: rejectedBy,
+          [`semesterSubmissions.${semester}.rejectedAt`]: new Date() 
+        } 
+      }
+    );
+    
+    await StudentAcc.updateOne(
+      { studentId },
+      { $set: { grades_filled: '0' } }
+    );
+    
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Serve marksheet file
+app.get('/marksheet/:studentId/:semester', async (req, res) => {
+  try {
+    const { studentId, semester } = req.params;
+    const grades = await StudentGrades.findOne({ studentId });
+    
+    if (!grades) {
+      return res.status(404).json({ error: 'Grades not found' });
+    }
+    
+    const semesterData = grades.semesterSubmissions.get(semester);
+    
+    if (!semesterData?.marksheetPath) {
+      return res.status(404).json({ error: 'Marksheet not found' });
+    }
+    
+    res.sendFile(path.resolve(semesterData.marksheetPath));
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.get('/approved-students', async (req, res) => {
+  try {
+    const { branch, regulation, semester } = req.query;
+    
+    const students = await StudentGrades.find({
+      branch,
+      regulation,
+      [`semesterSubmissions.${semester}.verified`]: true
+    }).lean();
+    
+    res.json(students);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
   }
 });
 

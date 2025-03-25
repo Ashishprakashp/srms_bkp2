@@ -23,6 +23,14 @@ const ClassGradesDetails = () => {
   const [isYearDisabled, setIsYearDisabled] = useState(false);
   const [enrollmentStatus, setEnrollmentStatus] = useState({});
 
+  const [showGradeModal, setShowGradeModal] = useState(false);
+const [selectedStudent, setSelectedStudent] = useState(null);
+const [studentGrades, setStudentGrades] = useState(null);
+const [marksheetUrl, setMarksheetUrl] = useState(null);
+
+const [approvedStudents, setApprovedStudents] = useState([]);
+const [approvedLoading, setApprovedLoading] = useState(true);
+
   // Fetch semester numbers from the database
   useEffect(() => {
     const fetchSemesters = async () => {
@@ -34,7 +42,7 @@ const ClassGradesDetails = () => {
           },
         });
         setSemesters(response.data.semesters);
-        setSelectedSemester(response.data.semesters[0]);
+        setSelectedSemester(response.data.semesters[0].toString());
         
         // Initialize sessionData and enrollmentStatus for each semester
         const initialSessionData = {};
@@ -145,9 +153,141 @@ const ClassGradesDetails = () => {
     fetchStudents();
   }, [branch, regulation, from_year, to_year, _class]);
 
+
+  useEffect(() => {
+    if (selectedSemester) {
+      fetchApprovedStudents();
+    }
+  }, [selectedSemester]); // Re-fetch when semester changes
+
+  const fetchApprovedStudents = async () => {
+    try {
+      setApprovedLoading(true);
+      const response = await axios.get('http://localhost:5000/approved-students', {
+        params: {
+          branch,
+          regulation,
+          semester: selectedSemester
+        }
+      });
+      setApprovedStudents(response.data);
+    } catch (error) {
+      console.error('Error fetching approved students:', error);
+    } finally {
+      setApprovedLoading(false);
+    }
+  };
+
+  const handleView = async (studentId) => {
+    try {
+      setLoading(true);
+      setSelectedStudent(studentId);
+      
+      // Fetch student details
+      const student = students.find(s => s.studentId === studentId);
+      
+      // Fetch grade details for the selected semester
+      const gradesResponse = await axios.get(
+        `http://localhost:5000/student-grades/${studentId}/${selectedSemester}`
+      );
+      
+      const gradeData = gradesResponse.data;
+      
+      if (!gradeData.courses || gradeData.courses.length === 0) {
+        throw new Error('No grade data found for this semester');
+      }
+      
+      setStudentGrades({
+        ...gradeData,
+        studentName: student.name,
+        studentId: studentId,
+        semester: selectedSemester
+      });
+      
+      // Generate marksheet URL if available
+      if (gradeData.marksheetPath) {
+        try {
+          const marksheetResponse = await axios.get(
+            `http://localhost:5000/marksheet/${studentId}/${selectedSemester}`,
+            { responseType: 'blob' }
+          );
+          const url = URL.createObjectURL(marksheetResponse.data);
+          setMarksheetUrl(url);
+        } catch (error) {
+          console.error('Error loading marksheet:', error);
+          setMarksheetUrl(null);
+        }
+      } else {
+        setMarksheetUrl(null);
+      }
+      
+      setShowGradeModal(true);
+    } catch (error) {
+      console.error('Error fetching grade details:', error);
+      alert(`Failed to load grade details: ${error.message}`);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleApprove = async () => {
+    try {
+      await axios.post('http://localhost:5000/admin/approve-grades', {
+        studentId: selectedStudent,
+        semester: selectedSemester,
+        approvedBy: sessionStorage.getItem('user')
+      });
+      
+      // Update local state
+      setStudents(prevStudents => 
+        prevStudents.map(student => 
+          student.studentId === selectedStudent 
+            ? { ...student, grades_approved: '1' } 
+            : student
+        )
+      );
+      
+      setShowGradeModal(false);
+      alert('Grades approved successfully');
+    } catch (error) {
+      console.error('Error approving grades:', error);
+      alert('Failed to approve grades');
+    }
+  };
+  
+  const handleReject = async () => {
+    try {
+      await axios.post('http://localhost:5000/admin/reject-grades', {
+        studentId: selectedStudent,
+        semester: selectedSemester,
+        rejectedBy: sessionStorage.getItem('user')
+      });
+      
+      // Update local state
+      setStudents(prevStudents => 
+        prevStudents.map(student => 
+          student.studentId === selectedStudent 
+            ? { 
+                ...student, 
+                grades_filled: '0',
+                can_fill_grades: selectedSemester // Allow them to resubmit
+              } 
+            : student
+        )
+      );
+      
+      setShowGradeModal(false);
+      alert('Grades rejected. Student can resubmit.');
+    } catch (error) {
+      console.error('Error rejecting grades:', error);
+      alert('Failed to reject grades');
+    }
+  };
+
+
   // Handle navigation to a specific semester
   const handleSemesterNavigation = (semester) => {
-    setSelectedSemester(semester);
+    setSelectedSemester(semester.toString());
     setCurrentPageEnrolled(1);
     setCurrentPagePending(1);
   };
@@ -368,10 +508,10 @@ const ClassGradesDetails = () => {
 
   // Filter students by semester
   const gradeFilledStudents = students.filter(
-    (student) => student.grades_filled === selectedSemester
+    (student) => student.grades_filled === selectedSemester && student.grades_approved!==selectedSemester
   );
   const pendingStudents = students.filter(
-    (student) => student.grades_filled !== selectedSemester
+    (student) => student.grades_filled !== selectedSemester && student.grades_approved!==selectedSemester
   );
 
   // Pagination functions
@@ -411,7 +551,7 @@ const ClassGradesDetails = () => {
           </Row>
 
           {/* Render tables based on the selected semester */}
-          {selectedSemester && (
+          {Number(selectedSemester) && (
             <>
               <Row>
                               <Col>
@@ -423,8 +563,8 @@ const ClassGradesDetails = () => {
                                         <FormSelect
                                           name="session_month"
                                           onChange={handleMonthChange}
-                                          value={sessionData[selectedSemester]?.month || ""}
-                                          disabled={true}
+                                          value={sessionData[Number(selectedSemester)]?.month || ""}
+                                          disabled={(sessionData[Number(selectedSemester)]==='')?false:true}
                                         >
                                           <option value="">Select Month</option>
                                           <option value="NOV">NOV</option>
@@ -440,8 +580,8 @@ const ClassGradesDetails = () => {
                                           type="number"
                                           placeholder="YEAR"
                                           onChange={handleYearChange}
-                                          value={sessionData[selectedSemester]?.year || ""}
-                                          disabled={true}
+                                          value={sessionData[Number(selectedSemester)]?.year || ""}
+                                          disabled={(sessionData[Number(selectedSemester)]==='')?false:true}
                                         />
                                       </FormGroup>
                                     </Col>
@@ -479,11 +619,11 @@ const ClassGradesDetails = () => {
                               <td>{student.regulation}</td>
                               <td>{student.from_year} - {student.to_year}</td>
                               <td>{student._class}</td>
-                              <td>{student.can_enroll ? "Yes" : "No"}</td>
-                              <td>{student.enrolled ? "Yes" : "No"}</td>
+                              <td>{student.can_fill_grades!=='0' ? "Yes" : "No"}</td>
+                              <td>{student.grades_filled!=='0' ? "Yes" : "No"}</td>
                               <td>
-                                <Button variant="primary" onClick={() => enableStudent(false, student.studentId)}>
-                                  Revoke
+                                <Button variant="primary" onClick={() => handleView(student.studentId)}>
+                                  View
                                 </Button>
                               </td>
                             </tr>
@@ -511,7 +651,7 @@ const ClassGradesDetails = () => {
               {/* Enrollment-Pending Students Table */}
               <Row className="mb-4">
                 <Col>
-                  <h2>Grade-Flling-Pending Students (Semester {selectedSemester})</h2>
+                  <h2>Grade-Filling-Pending Students (Semester {selectedSemester})</h2>
                   {pendingStudents.length > 0 ? (
                     <>
                       <button className="btn btn-success float-end ms-5 me-4 mb-5" onClick={enableAll}>Enable All</button>
@@ -574,6 +714,53 @@ const ClassGradesDetails = () => {
                 </Col>
               </Row>
 
+              {/* Approved Students Table */}
+{/* Approved Students Table */}
+<Row className="mb-4">
+  <Col>
+    <h2>Approved Students (Semester {selectedSemester})</h2>
+    {approvedLoading ? (
+      <Spinner animation="border" />
+    ) : approvedStudents.length > 0 ? (
+      <Table striped bordered hover>
+        <thead>
+          <tr>
+            <th>Student ID</th>
+            {/* <th>Name</th> */}
+            <th>GPA</th>
+            <th>Approved On</th>
+            <th>Approved By</th>
+          </tr>
+        </thead>
+        <tbody>
+          {approvedStudents.map((student) => {
+            // Handle both Map and plain object formats
+            const semesterData = student.semesterSubmissions instanceof Map
+              ? student.semesterSubmissions.get(selectedSemester)
+              : student.semesterSubmissions[selectedSemester];
+            
+            return (
+              <tr key={student.studentId}>
+                <td>{student.studentId}</td>
+                {/* <td>{student.name}</td> */}
+                <td>{semesterData?.gpa || 'N/A'}</td>
+                <td>
+                  {semesterData?.verifiedAt 
+                    ? new Date(semesterData.verifiedAt).toLocaleString() 
+                    : 'N/A'}
+                </td>
+                <td>{semesterData?.verifiedBy || 'N/A'}</td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </Table>
+    ) : (
+      <p>No approved students for this semester</p>
+    )}
+  </Col>
+</Row>
+
               {/* Enrollment Button */}
               <Row className="ms-4 me-4">
                 <Button className="w-100 py-2" onClick={handleEnrollment}>
@@ -604,6 +791,87 @@ const ClassGradesDetails = () => {
                   </Button>
                 </Modal.Footer>
               </Modal>
+              {/* Grade Details Modal */}
+<Modal 
+  show={showGradeModal} 
+  onHide={() => setShowGradeModal(false)}
+  size="lg"
+  centered
+>
+  <Modal.Header closeButton>
+    <Modal.Title>
+      Grade Details - {studentGrades?.studentName} (Semester {selectedSemester})
+    </Modal.Title>
+  </Modal.Header>
+  <Modal.Body>
+    {loading ? (
+      <div className="text-center">
+        <Spinner animation="border" />
+        <p>Loading grade details...</p>
+      </div>
+    ) : (
+      <>
+        <Row className="mb-3">
+          <Col md={6}>
+            <h5>Student Information</h5>
+            <p><strong>ID:</strong> {studentGrades?.studentId}</p>
+            <p><strong>Name:</strong> {studentGrades?.studentName}</p>
+            <p><strong>Semester:</strong> {selectedSemester}</p>
+            <p><strong>GPA:</strong> {studentGrades?.gpa}</p>
+            <p><strong>Submitted On:</strong> {new Date(studentGrades?.submissionDate).toLocaleString()}</p>
+          </Col>
+          <Col md={6}>
+            <h5>Course Grades</h5>
+            <Table striped bordered size="sm">
+              <thead>
+                <tr>
+                  <th>Course Code</th>
+                  <th>Grade</th>
+                </tr>
+              </thead>
+              <tbody>
+                {studentGrades?.courses?.map((course, index) => (
+                  <tr key={index}>
+                    <td>{course.courseCode}</td>
+                    <td>{course.grade}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </Table>
+          </Col>
+        </Row>
+        
+        <Row>
+          <Col>
+            <h5>Marksheet</h5>
+            {marksheetUrl ? (
+              <embed 
+                src={marksheetUrl} 
+                type="application/pdf" 
+                width="100%" 
+                height="400px"
+                style={{ border: '1px solid #ddd' }}
+              />
+            ) : (
+              <p className="text-danger">No marksheet uploaded</p>
+            )}
+          </Col>
+        </Row>
+      </>
+    )}
+  </Modal.Body>
+  <Modal.Footer>
+    <Button variant="secondary" onClick={() => setShowGradeModal(false)}>
+      Cancel
+    </Button>
+    <Button variant="danger" onClick={handleReject}>
+      Reject
+    </Button>
+    <Button variant="success" onClick={handleApprove}>
+      Approve
+    </Button>
+  </Modal.Footer>
+</Modal>
             </>
           )}
         </Container>
