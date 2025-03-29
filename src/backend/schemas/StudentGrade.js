@@ -9,8 +9,9 @@ const StudentGradesSchema = new mongoose.Schema({
     {
       courseCode: { type: String, required: true },
       semester: { type: String, required: true },
+      session: {type: String,default:''},
       confirmation: { type: Boolean, default: false },
-      grade: { type: String, enum: ['O', 'A+', 'A', 'B+', 'B' ,'C' , 'RA/U'], default: null }, // Track the grade for the course
+      grade: { type: String, enum: ['O', 'A+', 'A', 'B+', 'B' ,'C' , 'RA','SA','W'], default: null }, // Track the grade for the course
       gradeSubmittedAt: { type: Date, default: null },
       gradeConfirmed: { type: Boolean, default: false },
       gradeConfirmedAt: { type: Date, default: null },
@@ -23,6 +24,8 @@ const StudentGradesSchema = new mongoose.Schema({
     type: Map,
     of: new mongoose.Schema({
       gpa: { type: Number },
+      totalCredits: { type: Number }, // Add total credits for semester
+      scoredCredits: { type: Number }, // Add scored credits for semester
       marksheetPath: { type: String },
       submissionDate: { type: Date, default: Date.now },
       verified: { type: Boolean, default: false },

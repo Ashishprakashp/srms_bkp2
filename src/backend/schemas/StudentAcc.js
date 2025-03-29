@@ -65,7 +65,8 @@ const StudentAccSchema = new mongoose.Schema({
         required: [true, 'facultyAdvisor is required']
       },
       arrears:{
-        type: [subjectSchema]
+        type: [mongoose.Schema.Types.Mixed], 
+        default: []
       },
       can_enroll:{
         type: String,

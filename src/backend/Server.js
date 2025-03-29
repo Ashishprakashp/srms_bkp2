@@ -1251,7 +1251,7 @@ app.get("/semester-details", async (req, res) => {
       {
         course_name,
         "regulations.year": year,
-        "regulations.semesters.sem_no": sem_no,
+        "regulations.semesters.sem_no": sem_no.split(" ")[0],
       },
       {
         "regulations.$": 1, // Return only the matching regulation
@@ -1290,57 +1290,64 @@ app.get("/semester-details", async (req, res) => {
 //Student enrolling to a semester
 app.post('/student/enroll/:studentId/:semesterNumber', async (req, res) => {
   const { studentId, semesterNumber } = req.params;
-  const {course_name,year,sem_no,batch} = req.body;
-  console.log(req.params);
+  const { course_name, year, sem_no, batch, arrears } = req.body;
+  const currentSession = sem_no.split(" ")[1]+" "+sem_no.split(" ")[2];
+  console.log("CurrentSession: "+currentSession);
   try {
-    // Step 1: Update the student's enrollment status
-    const result = await StudentAcc.updateOne(
-      { studentId }, // Query to find the student
-      { $set: { enrolled: sem_no, can_enroll: 0 } } // Update fields
+    // 1. Update student status
+    await StudentAcc.updateOne(
+      { studentId },
+      { $set: { enrolled: sem_no, can_enroll: 0 } }
     );
 
-    // Step 2: Check if the student was found and updated
-    if (result.matchedCount === 0) {
-      return res.status(404).json({ message: 'Student not found' });
-    }
-    //Update the StudentGrade and StudentCourse Collections during an enrollment
-    const subjects = await axios.get("http://localhost:5000/semester-details",{
+    // 2. Get current semester subjects
+    const subjects = await axios.get("http://localhost:5000/semester-details", {
+      params: { course_name, year, sem_no: Number(sem_no.split(" ")[0]) },
       withCredentials: true,
-      params: {
-        course_name: course_name,
-        year: year,
-        sem_no: Number(sem_no.split(" ")[0]),
-      
+    });
+
+    // 3. Prepare new enrollments (current semester + arrears)
+    const newEnrollments = [
+      // Regular subjects
+      ...subjects.data.subjects.map(subject => ({
+        courseCode: subject.subject_code,
+        semester: semesterNumber,
+        session: currentSession,
+        grade: null,
+        isReEnrolled: false,
+        _id: new mongoose.Types.ObjectId()
+      })),
+      // Arrear re-enrollments (new entries)
+      ...arrears.map(arrear => ({
+        courseCode: arrear.subject_code,
+        semester: `${arrear.semester_offered} ${arrear.session}`, // Original semester
+        session: currentSession, // Current session
+        grade: null,
+        isReEnrolled: true,
+        originalGrade: arrear.grade, // Preserve historical grade
+        _id: new mongoose.Types.ObjectId()
+      }))
+    ];
+
+    // 4. Update StudentGrades without removing existing data
+    await StudentGrades.updateOne(
+      { studentId, branch: course_name, regulation: year, batch },
+      {
+        $push: { enrolledCourses: { $each: newEnrollments } },
+        $set: { lastUpdated: new Date() }
       },
-  });
-    console.log("Subjects: "+subjects.data.subjects);
+      { upsert: true }
+    );
 
-    const enrolledCourses = subjects.data.subjects.map((subject) => ({
-      courseCode: subject.subject_code, // Use subject_code as the unique identifier
-      semester: semesterNumber,
-      confirmation: false,
-      grade: null,
-      isReEnrolled: false,
-    }));
-    // Step 1: Remove existing courses with the same courseCode
-await StudentGrades.updateOne(
-  { studentId, branch: course_name, regulation: year, batch },
-  { $pull: { enrolledCourses: { courseCode: { $in: enrolledCourses.map((c) => c.courseCode) } } } }
-);
-
-// Step 2: Add the new courses
-const studentGradeUpdate = await StudentGrades.findOneAndUpdate(
-  { studentId, branch: course_name, regulation: year, batch },
-  { $push: { enrolledCourses: { $each: enrolledCourses } } },
-  { upsert: true, new: true, setDefaultsOnInsert: true }
-);
-    
-    console.log('StudentGrades updated:', studentGradeUpdate);
-    // Step 3: Fetch the updated student data
+    // 5. Send response
     const updatedStudent = await StudentAcc.findOne({ studentId });
+    res.status(200).json({
+      message: 'Enrollment successful',
+      student: updatedStudent,
+      newRegular: subjects.data.subjects.length,
+      newArrears: arrears.length
+    });
 
-    // Step 4: Send success response with the updated student data
-    res.status(200).json({ message: 'Enrollment successful', student: updatedStudent });
   } catch (error) {
     console.error('Error enrolling student:', error);
     res.status(500).json({ message: 'Internal server error' });
@@ -1432,11 +1439,13 @@ app.post("/student/enrollment/enable-all/:semesterNumber", async (req, res) => {
   try {
     const { branch, year, from_year, to_year, _class ,sess_month,sess_year,grades} = req.body;
     const {semesterNumber}  = req.params;
-
+    console.log("Session month: "+sess_month);
+    console.log("Session year: "+sess_year);
+    // semesterNumber = semesterNumber.toString()+" "+sess_month+" "+sess_year;
     if(grades){
       const updatedStudents = await StudentAcc.updateMany(
         { branch:branch, regulation:year, from_year:from_year, to_year:to_year, _class:_class },
-        { $set: { grades_filled: "0", can_fill_grades: semesterNumber } }
+        { $set: { grades_filled: "0", can_fill_grades: semesterNumber.toString()+" "+sess_month+" "+sess_year} }
       );
       if(updatedStudents){
         console.log("Enabled all!"+updatedStudents.length);
@@ -2034,20 +2043,15 @@ app.get('/student/grades/:studentId/semester/:semester', async (req, res) => {
 
 app.post('/submit-grades', upload.single('marksheet'), async (req, res) => {
   try {
-    console.log('Request received at /submit-grades');
-  console.log('Request body:', req.body);
-  console.log('Uploaded file:', req.file);
-    const { studentId, semester, grades, calculatedGpa } = req.body;
-    
+    const { studentId, semester, grades, calculatedGpa, totalCredits, scoredCredits ,session} = req.body;
+    const failedSubjects = [];
+    const studentAcc = await StudentAcc.findOne({ studentId });
     // Validate required fields
-    if (!studentId || !semester || !grades || !calculatedGpa) {
+    if (!studentId || !semester || !grades || !calculatedGpa || !totalCredits || !scoredCredits||!session) {
       throw new Error('Missing required fields');
     }
 
-    // Parse the grades JSON
     const parsedGrades = JSON.parse(grades);
-    
-    // Find the student record
     const studentRecord = await StudentGrades.findOne({ studentId });
     
     if (!studentRecord) {
@@ -2058,62 +2062,97 @@ app.post('/submit-grades', upload.single('marksheet'), async (req, res) => {
 
     // Process file if uploaded
     if (req.file) {
-      // Create uploads directory if it doesn't exist
       const uploadDir = 'uploads/marksheets/';
       if (!fs.existsSync(uploadDir)) {
         fs.mkdirSync(uploadDir, { recursive: true });
       }
 
-      // Generate unique filename
       const fileExt = path.extname(req.file.originalname);
       const filename = `${studentId}-${semester}-${Date.now()}${fileExt}`;
       marksheetPath = path.join(uploadDir, filename);
-
-      // Write buffer to disk
       fs.writeFileSync(marksheetPath, req.file.buffer);
     }
 
     // Update grades in enrolledCourses
     studentRecord.enrolledCourses = studentRecord.enrolledCourses.map(course => {
-      if (course.semester.includes(semester) && parsedGrades[course.courseCode.trim()]) {
-        return {
+      if (course.semester.includes(semester) && course.session===session){
+        const updatedCourse = {
           ...course.toObject(),
-          grade: parsedGrades[course.courseCode.trim()],
-          gradeSubmittedAt: new Date()
+          gradeSubmittedAt: new Date(),
         };
+        
+        if (parsedGrades[course.courseCode.trim()]) {
+          updatedCourse.grade = parsedGrades[course.courseCode.trim()];
+          updatedCourse.session = session;
+
+          //Check for arrears
+          if (['RA', 'SA', 'W'].includes(parsedGrades[course.courseCode.trim()]) ){
+            failedSubjects.push({
+              subject_code: course.courseCode,
+              grade: parsedGrades[course.courseCode.trim()],
+              semester: semester,
+              session: session
+            });
+          }
+        }
+        
+        return updatedCourse;
       }
       return course;
     });
 
+    //Add failed subjects to arrears of students
+    if (failedSubjects.length > 0) {
+      if (!studentAcc.arrears) {
+        studentAcc.arrears = [];
+      }
+      
+      // Only add new arrears that don't already exist
+      failedSubjects.forEach(failedSubject => {
+        const alreadyExists = studentAcc.arrears.some(
+          arr => arr.subject_code === failedSubject.subject_code && 
+                 arr.semester === failedSubject.semester
+        );
+        
+        if (!alreadyExists) {
+          studentAcc.arrears.push({...failedSubject,status:'active'});
+        }
+      });
+      
+      await studentAcc.save();
+    }
+
     // Add/update semester submission
     studentRecord.semesterSubmissions = studentRecord.semesterSubmissions || {};
+    console.log("Semester: "+semester);
+    console.log("Session: "+session);
     studentRecord.semesterSubmissions.set(semester, {
       gpa: parseFloat(calculatedGpa),
-      marksheetPath: marksheetPath, // Store relative path
+      totalCredits: parseInt(totalCredits),
+      scoredCredits: parseInt(scoredCredits),
+      marksheetPath: marksheetPath,
       submissionDate: new Date(),
       verified: false
     });
 
-    // Save the updated record
     await studentRecord.save();
-    const studentacc = await StudentAcc.updateOne(
+    await StudentAcc.updateOne(
       { studentId },
-      { $set: {can_fill_grades:0, grades_filled: semester } }
+      { $set: { can_fill_grades: 0, grades_filled: semester } }
     );
+    
     res.status(200).json({ 
       success: true,
       message: 'Grades and marksheet submitted successfully',
-      filePath: marksheetPath // For debugging
+      filePath: marksheetPath
     });
 
   } catch (error) {
     console.error('Submission error:', error);
-    
     res.status(500).json({ 
       success: false,
       message: 'Failed to submit grades',
-      error: error.message,
-      details: process.env.NODE_ENV === 'development' ? error.stack : undefined
+      error: error.message
     });
   }
 });
@@ -2288,6 +2327,135 @@ app.get('/approved-students', async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 });
+
+// Endpoint to fetch previous semester grades
+app.get('/student-grades-prev-sems/:studentId', async (req, res) => {
+  try {
+    console.log("1");
+    const studentRecord = await StudentGrades.findOne({ studentId: req.params.studentId });
+    console.log("2");
+    if (!studentRecord) {
+      console.log("3");
+      // Return empty data structure if no record exists
+      return res.status(200).json({
+        success: true,
+        semesterSubmissions: {}
+      });
+    }
+    console.log("4");
+    // Convert Map to Object for JSON serialization
+    const submissionsObj = {};
+    if (studentRecord.semesterSubmissions instanceof Map) {
+      console.log("5");
+      studentRecord.semesterSubmissions.forEach((value, key) => {
+        submissionsObj[key] = value;
+      });
+    } else {
+      console.log("6");
+      // Handle case where it's already an object
+      Object.assign(submissionsObj, studentRecord.semesterSubmissions);
+    }
+    console.log("7");
+    res.status(200).json({
+      success: true,
+      semesterSubmissions: submissionsObj
+    });
+    
+  } catch (error) {
+    console.error('Error fetching student grades:', error);
+    res.status(500).json({ 
+      success: false,
+      message: 'Failed to fetch student grades',
+      error: error.message
+    });
+  }
+});
+
+app.get('/get-arrears/:studentId', async (req, res) => {
+  try {
+    const { studentId } = req.params;
+
+    // 1. Fetch student with only necessary fields
+    const student = await StudentAcc.findOne({ studentId })
+      .select('arrears branch regulation')
+      .lean();
+
+    if (!student) {
+      return res.status(404).json({ error: 'Student not found' });
+    }
+
+    // 2. Return empty array if no arrears
+    if (!student.arrears || student.arrears.length === 0) {
+      return res.status(200).json([]);
+    }
+
+    // 3. Extract unique subject codes
+    const subjectCodes = [...new Set(student.arrears.map(a => a.subject_code))];
+
+    // 4. Fetch subject details using CORRECTED aggregation
+    const courseDetails = await Course.aggregate([
+      {
+        $match: {
+          course_name: student.branch,
+          'regulations.year': student.regulation // CHANGED FROM 'regulation' TO 'year'
+        }
+      },
+      { $unwind: '$regulations' },
+      { 
+        $match: {
+          'regulations.year': student.regulation // ADDED TO FILTER CORRECT REGULATION
+        }
+      },
+      { $unwind: '$regulations.semesters' },
+      { $unwind: '$regulations.semesters.subjects' },
+      {
+        $match: {
+          'regulations.semesters.subjects.subject_code': { 
+            $in: subjectCodes 
+          }
+        }
+      },
+      {
+        $project: {
+          _id: 0,
+          subject_code: '$regulations.semesters.subjects.subject_code',
+          subject_name: '$regulations.semesters.subjects.subject_name',
+          credits: '$regulations.semesters.subjects.credits',
+          subject_type: '$regulations.semesters.subjects.subject_type',
+          semester_offered: '$regulations.semesters.sem_no'
+        }
+      }
+    ]);
+
+    // 5. Combine and enrich arrears data
+    const enrichedArrears = student.arrears.map(arrear => {
+      const details = courseDetails.find(
+        c => c.subject_code === arrear.subject_code
+      ) || {};
+      
+      return {
+        ...arrear,
+        subject_name: details.subject_name || arrear.subject_code,
+        credits: details.credits || 0,
+        subject_type: details.subject_type || 'Unknown',
+        semester_offered: details.semester_offered || arrear.semester,
+        is_arrear: true
+      };
+    });
+
+    res.status(200).json(enrichedArrears);
+
+  } catch (error) {
+    console.error('Error in /get-arrears:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to process arrears',
+      error: error.message
+    });
+  }
+});
+
+
 
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => console.log(`Server running on http://localhost:${PORT}`));

@@ -15,6 +15,7 @@ const SemesterEnrollment = () => {
   const [studentData,setStudentData] = useState([]);
   const branch = sessionStorage.getItem('branch');
   const isBtech = branch.startsWith('BTECH');
+  const [arrears,setArrears] = useState([]);
 
   useEffect(() => {
     const fetchStudentDetails = async () => {
@@ -23,21 +24,47 @@ const SemesterEnrollment = () => {
         const response = await axios.get(`http://localhost:5000/student/${studentId}`, {
           withCredentials: true,
         });
-        const { can_enroll } = response.data;
+        
+        const { can_enroll, regulation } = response.data;
         setStudentData(response.data);
         setFormEnabled(can_enroll !== "0");
-        const sem_no = can_enroll ? can_enroll.split(" ")[0] : null;
+        
         if (can_enroll !== "0") {
-          const semester_response = await axios.get("http://localhost:5000/semester-details", {
-            withCredentials: true,
-            params: {
-              course_name: branch,
-              year: response.data.regulation,
-              sem_no: sem_no,
-            },
-          });
-          setSemesterData(semester_response.data.subjects);
+          const sem_no = can_enroll.split(" ")[0];
+          
+          // Fetch both current semester and arrears
+          const [semesterResponse, arrearsResponse] = await Promise.all([
+            axios.get("http://localhost:5000/semester-details", {
+              withCredentials: true,
+              params: {
+                course_name: branch,
+                year: regulation,
+                sem_no: sem_no,
+              },
+            }),
+            axios.get(`http://localhost:5000/get-arrears/${studentId}`, {
+              withCredentials: true,
+            })
+          ]);
+  
+          // Combine current semester subjects with arrears
+          const currentSemesterSubjects = semesterResponse.data.subjects.map(subj => ({
+            ...subj,
+            is_arrear: false  // Mark all current semester subjects as non-arrears
+          }));
+  
+          // Filter out arrears that are already in current semester (shouldn't happen but just in case)
+          const currentSemesterCodes = new Set(currentSemesterSubjects.map(s => s.subject_code));
+          const uniqueArrears = arrearsResponse.data.filter(
+            arrear => !currentSemesterCodes.has(arrear.subject_code)
+          );
+          setArrears(uniqueArrears);
+          // Combine both arrays
+          const mergedData = [...currentSemesterSubjects, ...uniqueArrears];
+          
+          setSemesterData(mergedData);
           setSemesterNumber(can_enroll);
+          console.log("Combined current semester and arrears:", mergedData);
         }
       } catch (error) {
         console.error('Error fetching enrollment details:', error);
@@ -45,6 +72,7 @@ const SemesterEnrollment = () => {
         setLoading(false);
       }
     };
+  
     fetchStudentDetails();
   }, [branch]);
 
@@ -67,10 +95,12 @@ const SemesterEnrollment = () => {
         course_name: branch,
         year: regulation,
         sem_no: semesterNumber,
-        batch: batch
+        batch: batch,
+        arrears: arrears,
       }, {
         withCredentials: true,
       });
+      
       setShowModal(true); // Show success modal
     } catch (error) {
       console.error('Error enrolling:', error);

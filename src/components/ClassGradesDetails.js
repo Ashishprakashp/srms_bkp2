@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import { Container, Row, Col, Nav, Button, Table, Pagination, Spinner, Modal, Form, FormGroup, FormLabel, FormControl, FormSelect } from "react-bootstrap";
 import { useLocation, useNavigate } from 'react-router-dom';
 import TitleBar from "./TitleBar.js";
-import StudentSideBar from "./StudentSideBar.js";
+import SideBar from "./SideBar.js";
 import axios from "axios";
 
 const ClassGradesDetails = () => {
@@ -529,7 +529,7 @@ const [approvedLoading, setApprovedLoading] = useState(true);
     <div>
       <TitleBar />
       <div className="d-flex flex-grow-1">
-        <StudentSideBar />
+        <SideBar />
         <Container fluid className="p-4" style={{ overflowY: "auto", height: "calc(100vh - 56px)" }}>
           {/* Semester Navigation */}
           <Row className="mb-4">
@@ -564,7 +564,7 @@ const [approvedLoading, setApprovedLoading] = useState(true);
                                           name="session_month"
                                           onChange={handleMonthChange}
                                           value={sessionData[Number(selectedSemester)]?.month || ""}
-                                          disabled={(sessionData[Number(selectedSemester)]==='')?false:true}
+                                          disabled={(sessionData[Number(selectedSemester)].month==='')?false:true}
                                         >
                                           <option value="">Select Month</option>
                                           <option value="NOV">NOV</option>
@@ -581,7 +581,7 @@ const [approvedLoading, setApprovedLoading] = useState(true);
                                           placeholder="YEAR"
                                           onChange={handleYearChange}
                                           value={sessionData[Number(selectedSemester)]?.year || ""}
-                                          disabled={(sessionData[Number(selectedSemester)]==='')?false:true}
+                                          disabled={(sessionData[Number(selectedSemester)].year.length!==4)?false:true}
                                         />
                                       </FormGroup>
                                     </Col>
