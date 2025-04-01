@@ -38,7 +38,7 @@ const StudentSideBar = ({ onLogoutClick }) => {
                     {/* Profile Management */}
                     <div className="mb-2">
                         <Nav.Link
-                            onClick={() => setOpenProfile(!openProfile)}
+                            href='/student-profile'
                             aria-controls="profile-collapse"
                             aria-expanded={openProfile}
                             className="text-white"
@@ -46,16 +46,7 @@ const StudentSideBar = ({ onLogoutClick }) => {
                         >
                             My Profile
                         </Nav.Link>
-                        <Collapse in={openProfile}>
-                            <div id="profile-collapse" className="ms-3">
-                                <Nav.Link href="#view-profile" className="text-white">
-                                    View Profile
-                                </Nav.Link>
-                                <Nav.Link href="#edit-profile" className="text-white">
-                                    Edit Profile
-                                </Nav.Link>
-                            </div>
-                        </Collapse>
+                        
                     </div>
 
                     {/* Academic Records */}

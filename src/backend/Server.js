@@ -846,7 +846,7 @@ app.get("/student/fetch", async (req, res) => {
   try {
     // Find the student by studentId
     console.log("stident Id: "+userId);
-    const student = await StudentAcc.findOne({ studentId: userId });
+    const student = await StudentAcc.findOne({ studentId: userId.toString() });
     
     if (!student) {
       return res.status(404).json({ success: false, message: "Student not found." });
@@ -857,6 +857,35 @@ app.get("/student/fetch", async (req, res) => {
       success: true,
       branch: student.branch,
       reset: student.reset,
+    });
+  } catch (error) {
+    console.error("Error fetching student account status:", error);
+    res.status(500).json({ success: false, message: "An error occurred. Please try again." });
+  }
+});
+
+app.get("/student/fetch-full", async (req, res) => {
+  console.log("UserId: "+req.query.userId);
+  const { userId } = req.query;
+  
+  // Validate input
+  if (!userId) {
+    return res.status(400).json({ success: false, message: "User ID is required." });
+  }
+
+  try {
+    // Find the student by studentId
+    console.log("stident Id: "+userId);
+    const student = await StudentAcc.findOne({ studentId: userId.toString() });
+    
+    if (!student) {
+      return res.status(404).json({ success: false, message: "Student not found." });
+    }
+
+    // Return the branch and reset status
+    res.status(200).json({
+      success: true,
+      student,
     });
   } catch (error) {
     console.error("Error fetching student account status:", error);
@@ -2158,12 +2187,12 @@ app.post('/submit-grades', upload.single('marksheet'), async (req, res) => {
 });
 
 // Get student grades
-app.get('/student-grades/:studentId/:semester', async (req, res) => {
+app.get('/student-grades/:studentId/:semester/:sess', async (req, res) => {
   try {
-    const { studentId, semester } = req.params;
+    const { studentId, semester ,sess} = req.params;
     
     // Find the student's grades
-    const grades = await StudentGrades.findOne({ studentId });
+    const grades = await StudentGrades.findOne({ studentId:studentId, 'enrolledCourses.session':sess });
     
     if (!grades) {
       return res.status(404).json({ error: 'Student grades not found' });
@@ -2183,7 +2212,7 @@ app.get('/student-grades/:studentId/:semester', async (req, res) => {
 
     // Filter enrolled courses for the specified semester with non-null grades
     const coursesWithGrades = grades.enrolledCourses.filter(course => 
-      course.semester.includes(semester) && course.grade !== null
+      course.semester.includes(semester) && course.grade !== null && course.session === sess
     );
 
     // Prepare response
@@ -2197,7 +2226,9 @@ app.get('/student-grades/:studentId/:semester', async (req, res) => {
         courseCode: course.courseCode,
         courseName: course.courseName || '', // Add if available in your schema
         grade: course.grade,
-        gradeSubmittedAt: course.gradeSubmittedAt
+        gradeSubmittedAt: course.gradeSubmittedAt,
+        isArrear: course.isReEnrolled || false,  // Mark as arrear if re-enrolled
+        originalSemester: course.isReEnrolled ? course.semester : undefined
       })),
       marksheetPath: semesterData.marksheetPath
     };
@@ -2212,7 +2243,7 @@ app.get('/student-grades/:studentId/:semester', async (req, res) => {
 // Approve grades
 app.post('/admin/approve-grades', async (req, res) => {
   try {
-    const { studentId, semester, approvedBy } = req.body;
+    const { studentId, semester, approvedBy ,session} = req.body;
     const currentDate = new Date();
 
     // Update semester submissions verification status
@@ -2238,7 +2269,7 @@ app.post('/admin/approve-grades', async (req, res) => {
       },
       {
         arrayFilters: [
-          { "elem.semester": semester, "elem.grade": { $ne: null } }
+          { "elem.session": session, "elem.grade": { $ne: null } }
         ]
       }
     );
@@ -2246,7 +2277,7 @@ app.post('/admin/approve-grades', async (req, res) => {
     // Update student account status
     await StudentAcc.updateOne(
       { studentId },
-      { $set: { grades_approved: semester.toString() } }
+      { $set: { grades_approved: session } }
     );
     
     res.json({ 
@@ -2266,7 +2297,7 @@ app.post('/admin/approve-grades', async (req, res) => {
 // Reject grades
 app.post('/admin/reject-grades', async (req, res) => {
   try {
-    const { studentId, semester, rejectedBy } = req.body;
+    const { studentId, semester, rejectedBy,session } = req.body;
     
     await StudentGrades.updateOne(
       { studentId },
@@ -2314,12 +2345,15 @@ app.get('/marksheet/:studentId/:semester', async (req, res) => {
 
 app.get('/approved-students', async (req, res) => {
   try {
-    const { branch, regulation, semester } = req.query;
-    
+    const { branch, regulation, semester,session } = req.query;
+    console.log("branch: "+branch);
+    console.log("regulation: "+regulation);
+    console.log("semester: "+semester);
+    console.log("session: "+session);
     const students = await StudentGrades.find({
       branch,
       regulation,
-      [`semesterSubmissions.${semester}.verified`]: true
+      [`semesterSubmissions.${semester.toString()}.verified`]: true
     }).lean();
     
     res.json(students);
@@ -2457,5 +2491,137 @@ app.get('/get-arrears/:studentId', async (req, res) => {
 
 
 
+app.post('/query-students', async (req, res) => {
+  try {
+    const { query, sortField, sortDirection } = req.body;
+
+    // Separate conditions by collection
+    const accsConditions = [];
+    const detailsConditions = [];
+    const gradesConditions = [];
+
+    if (query.$and) {
+      query.$and.forEach(condition => {
+        const [path, value] = Object.entries(condition)[0];
+        
+        if (path.startsWith('details.')) {
+          detailsConditions.push({ [path.replace('details.', '')]: value });
+        } else if (path.startsWith('grades.')) {
+          gradesConditions.push({ [path.replace('grades.', '')]: value });
+        } else {
+          accsConditions.push(condition);
+        }
+      });
+    }
+
+    // Base pipeline
+    const pipeline = [
+      { $match: accsConditions.length > 0 ? { $and: accsConditions } : {} }
+    ];
+
+    // Add details lookup with conditions
+    pipeline.push({
+      $lookup: {
+        from: 'studentdetails',
+        let: { registerNumber: '$studentId' },
+        pipeline: [
+          {
+            $match: {
+              $expr: { $eq: ['$personalInformation.register', '$$registerNumber'] },
+              ...(detailsConditions.length > 0 ? { $and: detailsConditions } : {})
+            }
+          }
+        ],
+        as: 'details'
+      }
+    });
+
+    // Add grades lookup with conditions
+    pipeline.push({
+      $lookup: {
+        from: 'studentgrades',
+        let: { registerNumber: '$studentId' },
+        pipeline: [
+          {
+            $match: {
+              $expr: { $eq: ['$studentId', '$$registerNumber'] },
+              ...(gradesConditions.length > 0 ? { $and: gradesConditions } : {})
+            }
+          }
+        ],
+        as: 'grades'
+      }
+    });
+
+    // Add post-lookup matching
+    const postMatches = [];
+    if (detailsConditions.length > 0) postMatches.push({ 'details.0': { $exists: true } });
+    if (gradesConditions.length > 0) postMatches.push({ 'grades.0': { $exists: true } });
+    
+    if (postMatches.length > 0) {
+      pipeline.push({ $match: { $and: postMatches } });
+    }
+
+    // Add projection and sorting
+    pipeline.push(
+      // Update the projection in the aggregation pipeline
+{
+  $project: {
+    studentId: 1,
+    name: 1,
+    branch: 1,
+    regulation: 1,
+    _class: 1,
+    facultyAdvisor: 1,
+    personalInformation: { $arrayElemAt: ['$details.personalInformation', 0] },
+    familyInformation: { $arrayElemAt: ['$details.familyInformation', 0] },
+    education: { $arrayElemAt: ['$details.education', 0] },
+    grades: { $arrayElemAt: ['$grades', 0] } // Corrected from '$grades.semesterSubmissions'
+  }
+},
+      { $sort: sortField ? { [sortField]: sortDirection === 'asc' ? 1 : -1 } : { studentId: 1 } }
+    );
+
+    const results = await StudentAcc.aggregate(pipeline).exec();
+    res.json(results);
+
+  } catch (error) {
+    console.error('Query error:', error);
+    res.status(500).json({ 
+      error: 'Internal server error',
+      message: error.message,
+      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+    });
+  }
+});
+
+// Add this route to your backend
+app.get('/student-personal-details', async (req, res) => {
+  try {
+  console.log("Hello");
+  const { registerNumber } = req.query;
+  console.log("Register: "+registerNumber);
+  const details = await StudentDetails.findOne({
+  'personalInformation.register': registerNumber
+  });
+  if (!details) {
+  return res.status(404).json({ error: 'Student details not found' });
+  }
+  res.json(details);
+  } catch (error) {
+  console.error('Error fetching student details:', error);
+  res.status(500).json({ error: 'Internal server error' });
+  }
+  });
+
+// Helper to convert nested field queries
+function convertNestedQuery(query) {
+  const result = {};
+  for (const [field, condition] of Object.entries(query)) {
+    const nestedPath = field.includes('.') ? field : `personalInformation.${field}`;
+    result[nestedPath] = condition;
+  }
+  return result;
+}
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => console.log(`Server running on http://localhost:${PORT}`));

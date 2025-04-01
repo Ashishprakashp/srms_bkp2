@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { Container, Row, Col, Nav, Button, Table, Pagination, Spinner, Modal, Form, FormGroup, FormLabel, FormControl, FormSelect } from "react-bootstrap";
+import { Container, Row, Col, Nav, Button, Table, Pagination, Spinner, Modal, Form, FormGroup, FormLabel, FormControl, FormSelect, Badge, Alert} from "react-bootstrap";
 import { useLocation, useNavigate } from 'react-router-dom';
 import TitleBar from "./TitleBar.js";
 import SideBar from "./SideBar.js";
@@ -22,7 +22,7 @@ const ClassGradesDetails = () => {
   const [isMonthDisabled, setIsMonthDisabled] = useState(false);
   const [isYearDisabled, setIsYearDisabled] = useState(false);
   const [enrollmentStatus, setEnrollmentStatus] = useState({});
-
+  const [session,setSession] = useState(null);
   const [showGradeModal, setShowGradeModal] = useState(false);
 const [selectedStudent, setSelectedStudent] = useState(null);
 const [studentGrades, setStudentGrades] = useState(null);
@@ -30,6 +30,8 @@ const [marksheetUrl, setMarksheetUrl] = useState(null);
 
 const [approvedStudents, setApprovedStudents] = useState([]);
 const [approvedLoading, setApprovedLoading] = useState(true);
+const [month_,setMonth]=useState('');
+const [year_,setYear]=useState('');
 
   // Fetch semester numbers from the database
   useEffect(() => {
@@ -52,6 +54,7 @@ const [approvedLoading, setApprovedLoading] = useState(true);
           initialEnrollmentStatus[semester] = false;
         });
         setSessionData(initialSessionData);
+        setSession(sessionData[Number(selectedSemester)].month+ " "+ sessionData[Number(selectedSemester)].year);
         setEnrollmentStatus(initialEnrollmentStatus);
       } catch (error) {
         console.error("Error fetching semesters:", error);
@@ -82,6 +85,8 @@ const [approvedLoading, setApprovedLoading] = useState(true);
         if (response.data) {
           const { month, year, status } = response.data;
           console.log("MONTH: "+month);
+          setMonth(month);
+          setYear(year);
           console.log("YEAR: "+year);
           // Update sessionData and enrollmentStatus for the selected semester
           setSessionData((prevData) => ({
@@ -159,7 +164,7 @@ const [approvedLoading, setApprovedLoading] = useState(true);
       fetchApprovedStudents();
     }
   }, [selectedSemester]); // Re-fetch when semester changes
-
+  console.log("Session data: "+sessionData[Number(selectedSemester)]);
   const fetchApprovedStudents = async () => {
     try {
       setApprovedLoading(true);
@@ -167,9 +172,11 @@ const [approvedLoading, setApprovedLoading] = useState(true);
         params: {
           branch,
           regulation,
-          semester: selectedSemester
+          semester: selectedSemester,
+          session: month_+" "+ year_,
         }
       });
+      console.log(response.data);
       setApprovedStudents(response.data);
     } catch (error) {
       console.error('Error fetching approved students:', error);
@@ -186,9 +193,12 @@ const [approvedLoading, setApprovedLoading] = useState(true);
       // Fetch student details
       const student = students.find(s => s.studentId === studentId);
       
+      console.log("Semester: "+selectedSemester);
+      console.log("Session: "+sessionData[Number(selectedSemester)].month+ " "+ sessionData[Number(selectedSemester)].year);
       // Fetch grade details for the selected semester
+      const sess = sessionData[Number(selectedSemester)].month+ " "+ sessionData[Number(selectedSemester)].year;
       const gradesResponse = await axios.get(
-        `http://localhost:5000/student-grades/${studentId}/${selectedSemester}`
+        `http://localhost:5000/student-grades/${studentId}/${selectedSemester}/${sess}`
       );
       
       const gradeData = gradesResponse.data;
@@ -235,6 +245,7 @@ const [approvedLoading, setApprovedLoading] = useState(true);
       await axios.post('http://localhost:5000/admin/approve-grades', {
         studentId: selectedStudent,
         semester: selectedSemester,
+        session: sessionData[Number(selectedSemester)].month+ " "+ sessionData[Number(selectedSemester)].year,
         approvedBy: sessionStorage.getItem('user')
       });
       
@@ -260,6 +271,7 @@ const [approvedLoading, setApprovedLoading] = useState(true);
       await axios.post('http://localhost:5000/admin/reject-grades', {
         studentId: selectedStudent,
         semester: selectedSemester,
+        session:sessionData[Number(selectedSemester)].month+ " "+ sessionData[Number(selectedSemester)].year,
         rejectedBy: sessionStorage.getItem('user')
       });
       
@@ -505,13 +517,13 @@ const [approvedLoading, setApprovedLoading] = useState(true);
       </div>
     );
   }
-
+  //console.log("Current session: "+month_+" "+year_);
   // Filter students by semester
   const gradeFilledStudents = students.filter(
-    (student) => student.grades_filled === selectedSemester && student.grades_approved!==selectedSemester
+    (student) => student.grades_filled === selectedSemester && student.grades_approved!==month_+" "+year_
   );
   const pendingStudents = students.filter(
-    (student) => student.grades_filled !== selectedSemester && student.grades_approved!==selectedSemester
+    (student) => student.grades_filled !== selectedSemester && student.grades_approved!==month_+" "+year_
   );
 
   // Pagination functions
@@ -538,7 +550,7 @@ const [approvedLoading, setApprovedLoading] = useState(true);
                 {semesters.map((semester) => (
                   <Nav.Item key={semester} className="mb-2">
                     <Button
-                      variant={selectedSemester === semester ? "primary" : "outline-primary"}
+                      variant={selectedSemester === semester.toString() ? "primary" : "outline-primary"}
                       className="mx-1"
                       onClick={() => handleSemesterNavigation(semester)}
                     >
@@ -606,7 +618,7 @@ const [approvedLoading, setApprovedLoading] = useState(true);
                             <th>Batch</th>
                             <th>Class</th>
                             <th>isEnabled?</th>
-                            <th>isEnrolled?</th>
+                            <th>isFilled?</th>
                             <th>Action</th>
                           </tr>
                         </thead>
@@ -730,6 +742,7 @@ const [approvedLoading, setApprovedLoading] = useState(true);
             <th>GPA</th>
             <th>Approved On</th>
             <th>Approved By</th>
+            <th>Action</th>
           </tr>
         </thead>
         <tbody>
@@ -750,6 +763,11 @@ const [approvedLoading, setApprovedLoading] = useState(true);
                     : 'N/A'}
                 </td>
                 <td>{semesterData?.verifiedBy || 'N/A'}</td>
+                <td>
+                <Button variant="primary" onClick={() => handleView(student.studentId)}>
+                                  View
+                                </Button>
+                </td>
               </tr>
             );
           })}
@@ -827,13 +845,35 @@ const [approvedLoading, setApprovedLoading] = useState(true);
                 <tr>
                   <th>Course Code</th>
                   <th>Grade</th>
+                  <th>Status</th>
                 </tr>
               </thead>
               <tbody>
                 {studentGrades?.courses?.map((course, index) => (
-                  <tr key={index}>
-                    <td>{course.courseCode}</td>
-                    <td>{course.grade}</td>
+                  <tr 
+                    key={index} 
+                    className={course.isArrear ? 'table-warning' : ''}
+                  >
+                    <td>
+                      {course.courseCode}
+                      {course.isArrear && (
+                        <Badge bg="danger" className="ms-2">Arrear Attempt</Badge>
+                      )}
+                    </td>
+                    <td>
+                      {course.grade}
+                      
+                    </td>
+                    <td>
+                      {course.isArrear ? (
+                        <>
+                          <div>Re-enrolled</div>
+                          <div className="small text-muted">
+                            Originally from: {course.originalSemester}
+                          </div>
+                        </>
+                      ) : 'Regular'}
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -845,15 +885,24 @@ const [approvedLoading, setApprovedLoading] = useState(true);
           <Col>
             <h5>Marksheet</h5>
             {marksheetUrl ? (
-              <embed 
-                src={marksheetUrl} 
-                type="application/pdf" 
-                width="100%" 
-                height="400px"
-                style={{ border: '1px solid #ddd' }}
-              />
+              <div className="border rounded p-2">
+                <embed 
+                  src={marksheetUrl} 
+                  type="application/pdf" 
+                  width="100%" 
+                  height="400px"
+                />
+                <div className="mt-2">
+                  <Badge bg="info">
+                    Verified: {studentGrades?.verified ? 'Yes' : 'No'}
+                  </Badge>
+                </div>
+              </div>
             ) : (
-              <p className="text-danger">No marksheet uploaded</p>
+              <Alert variant="warning">
+                <i className="bi bi-exclamation-triangle-fill me-2"></i>
+                No marksheet uploaded for this semester
+              </Alert>
             )}
           </Col>
         </Row>
@@ -862,14 +911,18 @@ const [approvedLoading, setApprovedLoading] = useState(true);
   </Modal.Body>
   <Modal.Footer>
     <Button variant="secondary" onClick={() => setShowGradeModal(false)}>
-      Cancel
+      Close
     </Button>
-    <Button variant="danger" onClick={handleReject}>
-      Reject
-    </Button>
-    <Button variant="success" onClick={handleApprove}>
-      Approve
-    </Button>
+    {!studentGrades?.verified && (
+      <>
+        <Button variant="danger" onClick={handleReject}>
+          <i className="bi bi-x-circle-fill me-1"></i> Reject
+        </Button>
+        <Button variant="success" onClick={handleApprove}>
+          <i className="bi bi-check-circle-fill me-1"></i> Approve
+        </Button>
+      </>
+    )}
   </Modal.Footer>
 </Modal>
             </>
