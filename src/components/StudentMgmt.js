@@ -58,10 +58,10 @@ const StudentMgmt = () => {
                 ['Student Details Approval', 'card-3', '/student-details-approval'],
                 ['Semester Enrollment', 'card-4', '/student-enrollment'],
                 ['Semester Grades Approval', 'card-4', '/student-grades-approval'],
-                ['Generate Report', 'card-1', ''],
+                ['Generate Report', 'card-1', '/student-report'],
                 ['Create/Edit Document Templates', 'card-2', ''],
                 ['Document Approval', 'card-3', ''],
-                ['Query Student Data', 'card-4', ''],
+                ['Query Student Data', 'card-4', '/student-query-system'],
                 ['Data Visualization', 'card-4', ''],
               ].map(([title, cardClass, path], index) => (
                 <Col key={index}>

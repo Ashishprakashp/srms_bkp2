@@ -2614,6 +2614,25 @@ app.get('/student-personal-details', async (req, res) => {
   }
   });
 
+//student report api
+// In your server routes
+app.get('/api/students/:registerNumber', async (req, res) => {
+  try {
+    const student = await StudentGrades.findOne({ studentId: req.params.registerNumber })
+      .lean()
+      .exec();
+    
+    if (!student) {
+      return res.status(404).json({ message: 'Student not found' });
+    }
+
+    res.json(student);
+  } catch (error) {
+    console.error('Error fetching student data:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
 // Helper to convert nested field queries
 function convertNestedQuery(query) {
   const result = {};

@@ -4,6 +4,10 @@ import axios from 'axios';
 import TitleBar from './TitleBar.js';
 import SideBar from './SideBar.js';
 import { useNavigate } from 'react-router-dom';
+import jsPDF from 'jspdf';
+import 'jspdf-autotable';
+import autoTable from 'jspdf-autotable';
+import { utils, writeFile } from 'xlsx';
 
 const DynamicQuery = () => {
   const navigate = useNavigate();
@@ -365,13 +369,68 @@ setFilters([]);
 setStudents([]);
 setQueriedAttributes([]);
 };
+const downloadExcel = () => {
+  // Create worksheet data
+  const worksheetData = [
+    ["ANNA UNIVERSITY"],
+    ["DEPARTMENT OF IST"],
+    [],
+    ["Applied Filters:", ...filters.map(filter => {
+      const attribute = availableAttributes.find(a => a.path === filter.attributePath);
+      return `${attribute?.label} ${filter.operator} ${filter.value}`;
+    })],
+    [], // Empty row
+    [
+      'Register No',
+      'Name',
+      'Branch',
+      ...queriedAttributes.map(path => 
+        availableAttributes.find(a => a.path === path)?.label || path
+      )
+    ]
+  ];
+
+  // Add student data
+  sortedStudents.forEach(student => {
+    worksheetData.push([
+      student.studentId,
+      student.name,
+      student.branch,
+      ...queriedAttributes.map(path => {
+        const value = getNestedValue(student, path);
+        // Convert numbers to proper Excel numeric type
+        return typeof value === 'number' ? Number(value.toFixed(2)) : value;
+      })
+    ]);
+  });
+
+  // Create worksheet
+  const worksheet = utils.aoa_to_sheet(worksheetData);
+  
+  // Create workbook
+  const workbook = utils.book_new();
+  utils.book_append_sheet(workbook, worksheet, "Students");
+
+  // Set column widths
+  const cols = [
+    { wch: 15 }, // Register No
+    { wch: 30 }, // Name
+    { wch: 10 }, // Branch
+    ...queriedAttributes.map(() => ({ wch: 20 })) // Dynamic columns
+  ];
+  worksheet['!cols'] = cols;
+
+  // Write file
+  const date = new Date().toISOString().split('T')[0];
+  writeFile(workbook, `AnnaUniv_IST_Students_${date}.xlsx`);
+};
 
 return (
   <>
   <TitleBar />
   <div className="d-flex vh-100">
         <SideBar onLogoutClick={() => setShowLogoutModal(true)} />
-        <div className='main-content-ad-dboard flex-grow-1'>
+        <div className='main-content-ad-dboard flex-grow-1 overflow-y-auto'>
 <div className="p-4">
 <h2 className="mb-4">Student Query System</h2>
 {showLogoutModal && (
@@ -474,7 +533,11 @@ Searching...
 </>
 ) : 'Search Students'}
 </Button>
+<Button variant="primary" onClick={downloadExcel} disabled={students.length === 0}>
+      Download Excel
+    </Button>
 </div>
+
 </>
 )}
 </Card.Body>

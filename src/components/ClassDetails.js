@@ -592,7 +592,7 @@ const ClassDetails = () => {
       <div className="d-flex vh-100">
         <SideBar />
     
-        <div className="flex-grow-1 p-4" style={{ marginLeft: '20px', marginRight: '20px' }}>
+        <div className="flex-grow-1 p-4 " style={{ marginLeft: '20px', marginRight: '20px' }}>
         <Button className="mb-4 float-end" onClick={() => navigate(-1)}>
   Back
 </Button>

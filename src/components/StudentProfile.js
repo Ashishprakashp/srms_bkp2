@@ -148,7 +148,7 @@ const StudentProfile = () => {
       <div className="d-flex vh-100">
         <StudentSideBar onLogoutClick={() => setShowLogoutModal(true)} />
 
-        <div className="flex-grow-1 p-4">
+        <div className="flex-grow-1 p-4 overflow-y-auto">
           <div className="mb-4">
             <h1>Welcome, {sessionStorage.getItem('student')}</h1>
           </div>

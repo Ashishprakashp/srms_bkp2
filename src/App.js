@@ -25,6 +25,7 @@ import ClassGradesDetails from './components/ClassGradesDetails.js';
 import DynamicQuery from './components/DynamicQuery.js';
 import DynamicQueryComponent from './components/DynamicQueryComponent.js';
 import StudentProfile from './components/StudentProfile.js';
+import StudentReport from './components/StudentReport.js';
 
 function App() {
   const services3 = [
@@ -62,6 +63,7 @@ function App() {
         <Route path="/class-details" element={<ProtectedRoute role="admin"><ClassDetails /></ProtectedRoute>} />
         <Route path="/enrollment-details" element={<ProtectedRoute role="admin"><EnrollmentDetails /></ProtectedRoute>} />
         <Route path="/student-query-system" element={<ProtectedRoute role="admin"><DynamicQuery/></ProtectedRoute>}></Route>
+        <Route path="/student-report" element={<ProtectedRoute role="admin"><StudentReport/></ProtectedRoute>}></Route>
         <Route path="/dynamic-query" element={<ProtectedRoute role="admin"><DynamicQueryComponent/></ProtectedRoute>}></Route>
         <Route path="/student-profile" element={<ProtectedRoute role="admin"><StudentProfile/></ProtectedRoute>}></Route>
         <Route path="/student-login" element={<StudentLogin/>}/>
