@@ -1,8 +1,23 @@
 import React, { useState } from 'react';
 import { Table, Form, Button, Row, Col, Card, Spinner } from 'react-bootstrap';
 import axios from 'axios';
+import TitleBar from './TitleBar.js';
+import SideBar from './SideBar.js';
+import { useNavigate } from 'react-router-dom';
 
 const DynamicQuery = () => {
+  const navigate = useNavigate();
+  const [showLogoutModal, setShowLogoutModal] = useState(false);
+  const handleLogout = async () => {
+    try {
+      await axios.post('http://localhost:5000/logout', {}, {
+        withCredentials: true
+      });
+    } finally {
+      navigate('/', { replace: true }); // Replace history entry
+      window.location.reload(); // Optional: Refresh the page to clear state
+    }
+  };
 // Available attributes with metadata
 const availableAttributes = [
 // Personal Information
@@ -352,8 +367,28 @@ setQueriedAttributes([]);
 };
 
 return (
+  <>
+  <TitleBar />
+  <div className="d-flex vh-100">
+        <SideBar onLogoutClick={() => setShowLogoutModal(true)} />
+        <div className='main-content-ad-dboard flex-grow-1'>
 <div className="p-4">
 <h2 className="mb-4">Student Query System</h2>
+{showLogoutModal && (
+              <div className="logout-modal-overlay">
+                <div className="logout-modal-content p-5">
+                  <h3 className='text-center'>Confirm Logout ?</h3>
+                  <div className="modal-buttons mt-5" style={{ display: 'flex', justifyContent: 'center' }}>
+                    <Button variant="secondary" className='fs-5 px-5' onClick={() => setShowLogoutModal(false)}>
+                      Cancel
+                    </Button>
+                    <Button variant="danger" className='fs-5 px-5' onClick={handleLogout}>
+                     Logout
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            )}
 <Card className="mb-4">
 <Card.Header>
 <div className="d-flex justify-content-between align-items-center">
@@ -499,7 +534,11 @@ return <td key={path}>{value === '-' ? '' : value}</td>;
 </Card.Body>
 </Card>
 </div>
+</div>
+</div>
+</>
 );
+
 };
 
 export default DynamicQuery;
