@@ -115,12 +115,27 @@ const Page2 = ({ formData, setFormData }) => {
         <Row className="mb-3">
           <Col md={6}>
             <Form.Group>
-              <Form.Label>Parent's Telephone Number:</Form.Label>
+              {/* Mobile Number Field */}
+              <Form.Label style={{ color: 'black' }}>Parent's Telephone Number:</Form.Label>
               <Form.Control
+                size="sm"
                 type="text"
                 value={safeFormData.familyInformation.parentContact || ''}
-                onChange={(e) => handleFamilyChange('parentContact', e.target.value)}
+                onChange={(e) => {
+                  const value = e.target.value;
+                  // Restrict input to 10 digits
+                  if (value.length <= 10) {
+                    handleFamilyChange('parentContact', e.target.value)
+                  }
+                }}
+                isInvalid={safeFormData.familyInformation.parentContact && safeFormData.familyInformation.parentContact.length !== 10}
               />
+              {/* Display error message if the number is not 10 digits */}
+              {safeFormData.familyInformation.parentContact && safeFormData.familyInformation.parentContact.length !== 10 && (
+                <Form.Control.Feedback type="invalid">
+                  Please enter a 10-digit mobile number.
+                </Form.Control.Feedback>
+              )}
             </Form.Group>
           </Col>
           <Col md={6}>

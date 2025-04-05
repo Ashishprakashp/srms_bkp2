@@ -89,10 +89,10 @@ const Page3 = ({ formData, setFormData }) => {
           <Form.Group>
             <Form.Label>Board:</Form.Label>
             <Form.Select
-              value={formData.education.xBoard || '---'}
+              value={formData.education.xBoard || ''}
               onChange={(e) => handleChange('education', 'xBoard', e.target.value)}
             >
-              <option value="---">---</option>
+              <option value="">---</option>
               <option value="State-Board">State-Board</option>
               <option value="CBSE">CBSE</option>
               <option value="ICSE">ICSE</option>
@@ -178,10 +178,10 @@ const Page3 = ({ formData, setFormData }) => {
           <Form.Group>
             <Form.Label>Board:</Form.Label>
             <Form.Select
-              value={formData.education.xiiBoard || '---'}
+              value={formData.education.xiiBoard || ''}
               onChange={(e) => handleChange('education', 'xiiBoard', e.target.value)}
             >
-              <option value="---">---</option>
+              <option value="">---</option>
               <option value="State-Board">State-Board</option>
               <option value="CBSE">CBSE</option>
               <option value="ICSE">ICSE</option>

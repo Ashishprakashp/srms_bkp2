@@ -1,0 +1,29 @@
+/* GradeForm.css */
+.bg-fc-row {
+    background-color: #e3f2fd !important; /* Light blue for Foundation Course */
+  }
+  
+  .bg-rmc-row {
+    background-color: #fff8e1 !important; /* Light amber for Remedial Course */
+  }
+  
+  .bg-pcc-row {
+    background-color: #e8f5e9 !important; /* Light green for Professional Core Course */
+  }
+  
+  .bg-pec-row {
+    background-color: #f3e5f5 !important; /* Light purple for Professional Elective Course */
+  }
+  
+  .bg-eec-row {
+    background-color: #ffebee !important; /* Light red for Employability Enhancement Course */
+  }
+  
+  /* Ensure text remains readable on colored backgrounds */
+  .bg-fc-row td,
+  .bg-rmc-row td,
+  .bg-pcc-row td,
+  .bg-pec-row td,
+  .bg-eec-row td {
+    color: #212529 !important;
+  }

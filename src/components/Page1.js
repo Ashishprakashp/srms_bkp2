@@ -198,20 +198,20 @@
   <Form.Control
     size="sm"
     type="number"
-    value={formData.personalInformation.aadhar_no || ''}
+    value={formData.personalInformation.aadhar || ''}
+    
     onChange={(e) => {
       const value = e.target.value;
-      // Restrict input to 10 digits
       if (value.length <= 12) {
-        handleFileChange('aadhar', value);
+        handleChange('personalInformation', 'aadhar', value);
       }
+      
     }}
-    isInvalid={formData.personalInformation.aadhar_no && formData.personalInformation.aadhar_no.length !== 12}
-  />
+    isInvalid={formData.personalInformation.aadhar && formData.personalInformation.aadhar.length !== 12}/>
   {/* Display error message if the number is not 10 digits */}
-  {formData.personalInformation.mobile && formData.personalInformation.mobile.length !== 12 && (
+  {formData.personalInformation.aadhar && formData.personalInformation.aadhar.length !== 12 && (
     <Form.Control.Feedback type="invalid">
-      Please enter a 12-digit mobile number.
+      Please enter a 12-digit aadhar number.
     </Form.Control.Feedback>
   )}
 </Form.Group>

@@ -24,6 +24,8 @@ import StudentGrades from './schemas/StudentGrade.js';
 import Enrollment from './schemas/Enrollment.js';
 import GradesEnrollment from './schemas/GradesEnrollment.js';
 
+import { FilterXSS } from 'xss';
+import mongoSanitize from 'express-mongo-sanitize';
 
 // Get the directory name
 const __filename = fileURLToPath(import.meta.url);
@@ -32,6 +34,44 @@ const __dirname = dirname(__filename);
 dotenv.config();
 
 const app = express();
+
+const xssFilter = new FilterXSS({
+  whiteList: {}, // Strip all HTML
+  stripIgnoreTag: true,
+  stripIgnoreTagBody: ['script']
+});
+
+
+// Enhanced sanitization function with proper MongoDB key sanitization
+const sanitizeDeep = (obj) => {
+  if (obj === null || typeof obj !== 'object') {
+    return typeof obj === 'string' ? xssFilter.process(obj) : obj;
+  }
+
+  if (Array.isArray(obj)) {
+    return obj.map(sanitizeDeep);
+  }
+
+  const sanitized = {};
+  for (const [key, value] of Object.entries(obj)) {
+    // Sanitize MongoDB operators in keys
+    const cleanKey = key.replace(/^\$/, '_').replace(/\./g, '_');
+    
+    // Sanitize values recursively
+    const cleanValue = sanitizeDeep(value);
+    
+    sanitized[cleanKey] = cleanValue;
+  }
+  return sanitized;
+};
+// XSS middleware
+const xssMiddleware = (req, res, next) => {
+  if (req.body) req.body = sanitizeDeep(req.body);
+  if (req.query) req.query = sanitizeDeep(req.query);
+  if (req.params) req.params = sanitizeDeep(req.params);
+  next();
+};
+
 
 // Enhanced CORS configuration
 app.use(cors({
@@ -43,6 +83,10 @@ app.use(cors({
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+
+app.use(mongoSanitize());
+app.use(xssMiddleware);
+
 app.use(cookieParser());
 
 // Session configuration
@@ -64,7 +108,17 @@ app.use(
   })
 );
 
+
+
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+
+
+app.post('/submit', (req, res) => {
+  res.send({
+    sanitizedInput: req.body
+  });
+});
+
 mongoose.connect(process.env.MONGO_URI, { 
   useNewUrlParser: true, 
   useUnifiedTopology: true 
@@ -934,6 +988,7 @@ app.get('/student/:studentId', async (req, res) => {
       can_fill_grades: student.can_fill_grades,
       grades_filled: student.grades_filled,
       class: student._class,
+      arrears: student.arrears,
     });
   } catch (error) {
     console.error('Error fetching student details:', error);
@@ -1349,7 +1404,7 @@ app.post('/student/enroll/:studentId/:semesterNumber', async (req, res) => {
       // Arrear re-enrollments (new entries)
       ...arrears.map(arrear => ({
         courseCode: arrear.subject_code,
-        semester: `${arrear.semester_offered} ${arrear.session}`, // Original semester
+        semester: arrear.semester, // Original semester
         session: currentSession, // Current session
         grade: null,
         isReEnrolled: true,
@@ -1635,10 +1690,12 @@ app.post('/save-page-data', uploadMiddleware, async (req, res) => {
       return res.status(400).json({ error: "Missing student data in request" });
     }
 
-    // Parse JSON data
-    const pageData = JSON.parse(req.body.data);
-    const { fields } = pageData;
+    
 
+    // Parse JSON data
+    const rawData = JSON.parse(req.body.data);
+    const pageData = sanitizeDeep(rawData);
+    const { fields } = pageData;
     // Extract necessary fields for directory structure
     const { branch = "default", regulation = "default", batch = "default", register = "default" } = fields;
 
@@ -1917,68 +1974,189 @@ app.post('/student/update-grades', async (req, res) => {
 });
 
 // Submit grades for a semester
-app.post('/student/submit-grades', async (req, res) => {
-  try {
-    const { studentId, semester, grades, submittedBy } = req.body;
+// app.post('/submit-grades', upload.single('marksheet'), async (req, res) => {
+//   try {
+//     // Single destructuring with proper defaults
+//     const { 
+//       studentId,
+//       semester,
+//       grades = '{}',
+//       currentTotal = '0',
+//       currentScored = '0',
+//       arrearScored = '0',
+//       session,
+//       clearedArrears = '[]'
+//     } = req.body;
 
-    // Validate input
-    if (!studentId || !semester || !grades || !submittedBy) {
-      return res.status(400).json({ error: 'Missing required fields' });
+//     // Validate required fields first
+//     const requiredFields = ['studentId', 'semester', 'session'];
+//     const missingFields = requiredFields.filter(field => !req.body[field]);
+    
+//     if (missingFields.length > 0) {
+//       return res.status(400).json({
+//         success: false,
+//         error: `Missing required fields: ${missingFields.join(', ')}`,
+//         received: Object.keys(req.body)
+//       });
+//     }
+
+//     // Parse numerical values
+//     const numericCurrentTotal = parseInt(currentTotal);
+//     const numericCurrentScored = parseInt(currentScored);
+//     const numericArrearScored = parseInt(arrearScored);
+//     const parsedGrades = JSON.parse(grades);
+//     const parsedClearedArrears = JSON.parse(clearedArrears);
+//     const [semesterNumber] = semester.split(' ');
+
+//     // Get student records
+//     const [studentAcc, studentRecord] = await Promise.all([
+//       StudentAcc.findOne({ studentId }),
+//       StudentGrades.findOne({ studentId })
+//     ]);
+
+//     if (!studentRecord || !studentAcc) {
+//       return res.status(404).json({ 
+//         success: false,
+//         error: 'Student record not found' 
+//       });
+//     }
+
+//     // Calculate GPA if not provided
+//     const calculatedGpa = numericCurrentTotal > 0 
+//       ? (numericCurrentScored / numericCurrentTotal).toFixed(2)
+//       : 0;
+
+//     // Process file upload (keep existing code)
+//     // ... [file upload logic remains same] ...
+
+//     // Update enrolled courses (keep existing code)
+//     // ... [course update logic remains same] ...
+
+//     // Update semester submissions
+//     studentRecord.semesterSubmissions.set(semesterNumber, {
+//       gpa: parseFloat(calculatedGpa),
+//       totalCredits: numericCurrentTotal,
+//       scoredCredits: numericCurrentScored,
+//       marksheetPath,
+//       submissionDate: new Date(),
+//       verified: false
+//     });
+
+//     // Process cleared arrears
+//     if (parsedClearedArrears.length > 0) {
+//       parsedClearedArrears.forEach(arrear => {
+//         const originalSem = arrear.originalSemester.toString();
+//         const currentEntry = studentRecord.semesterSubmissions.get(originalSem) || {
+//           totalCredits: 0,
+//           scoredCredits: 0,
+//           gpa: 0
+//         };
+        
+//         studentRecord.semesterSubmissions.set(originalSem, {
+//           ...currentEntry,
+//           scoredCredits: currentEntry.scoredCredits + arrear.credits
+//         });
+//       });
+
+//       await StudentAcc.updateOne(
+//         { studentId },
+//         {
+//           $set: {
+//             'arrears.$[elem].status': 'closed',
+//             can_fill_grades: '0',
+//             grades_filled: semesterNumber
+//           }
+//         },
+//         {
+//           arrayFilters: [{
+//             'elem.subject_code': { $in: parsedClearedArrears.map(a => a.courseCode) },
+//             'elem.semester': { $in: parsedClearedArrears.map(a => a.originalSemester.toString()) }
+//           }]
+//         }
+//       );
+//     } else {
+//       await StudentAcc.updateOne(
+//         { studentId },
+//         {
+//           $set: {
+//             can_fill_grades: '0',
+//             grades_filled: semesterNumber
+//           }
+//         }
+//       );
+//     }
+
+//     await studentRecord.save();
+
+//     res.status(200).json({
+//       success: true,
+//       message: 'Grades submitted successfully',
+//       clearedArrears: parsedClearedArrears,
+//       currentSemester: {
+//         semester: semesterNumber,
+//         gpa: calculatedGpa,
+//         credits: {
+//           total: numericCurrentTotal,
+//           scored: numericCurrentScored
+//         }
+//       }
+//     });
+
+//   } catch (error) {
+//     console.error('Submission error:', {
+//       error: error.message,
+//       body: req.body,
+//       params: req.params
+//     });
+    
+//     res.status(500).json({
+//       success: false,
+//       message: 'Failed to submit grades',
+//       error: error.message,
+//       stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+//     });
+//   }
+// });
+// Helper functions
+function calculateSemesterGPA(courses) {
+  let totalPoints = 0;
+  let totalCredits = 0;
+  
+  courses.forEach(course => {
+    if (course.grade && gradePoints[course.grade]) {
+      totalPoints += (course.credits || 0) * gradePoints[course.grade];
+      totalCredits += course.credits || 0;
     }
+  });
+  
+  return totalCredits > 0 ? totalPoints / totalCredits : 0;
+}
 
-    // Find the student record
-    const studentRecord = await StudentGrades.findOne({ studentId });
-    if (!studentRecord) {
-      return res.status(404).json({ error: 'Student record not found' });
+function calculateSemesterCredits(courses) {
+  let total = 0;
+  let scored = 0;
+  
+  courses.forEach(course => {
+    total += course.credits || 0;
+    if (course.grade && gradePoints[course.grade] >= 5) { // Passing grade
+      scored += course.credits || 0;
     }
+  });
+  
+  return { total, scored };
+}
 
-    const currentDate = new Date();
-    const validGrades = ['O', 'A+', 'A', 'B+', 'B', 'C', 'RA/U'];
-    const updates = [];
-
-    // Prepare updates for each course
-    for (const [courseCode, grade] of Object.entries(grades)) {
-      if (!validGrades.includes(grade)) {
-        return res.status(400).json({ error: `Invalid grade '${grade}' for course ${courseCode}` });
-      }
-
-      const courseIndex = studentRecord.enrolledCourses.findIndex(
-        c => c.courseCode === courseCode && c.semester === semester
-      );
-
-      if (courseIndex === -1) {
-        return res.status(400).json({ error: `Course ${courseCode} not found in semester ${semester}` });
-      }
-
-      updates.push({
-        [`enrolledCourses.${courseIndex}.grade`]: grade,
-        [`enrolledCourses.${courseIndex}.gradeSubmittedAt`]: currentDate,
-        [`enrolledCourses.${courseIndex}.gradeSubmittedBy`]: submittedBy
-      });
-    }
-
-    // Apply all updates
-    const updatedRecord = await StudentGrades.findOneAndUpdate(
-      { studentId },
-      {
-        $set: {
-          ...updates.reduce((acc, curr) => ({ ...acc, ...curr }), {}),
-          lastUpdated: currentDate
-        }
-      },
-      { new: true }
-    );
-
-    res.status(200).json({
-      message: 'Grades submitted successfully',
-      data: updatedRecord
-    });
-
-  } catch (error) {
-    console.error('Error submitting grades:', error);
-    res.status(500).json({ error: 'Internal server error' });
-  }
-});
+const gradePoints = {
+  'O': 10,
+  'A+': 9,
+  'A': 8,
+  'B+': 7,
+  'B': 6,
+  'C': 5,
+  'RA': 0,
+  'SA': 0,
+  'W': 0
+};
 
 // Confirm grades (for admin/faculty)
 app.post('/student/confirm-grades', async (req, res) => {
@@ -2070,122 +2248,246 @@ app.get('/student/grades/:studentId/semester/:semester', async (req, res) => {
   }
 });
 
+
+
 app.post('/submit-grades', upload.single('marksheet'), async (req, res) => {
+  let marksheetPath = null;
+  let operationSuccess = false;
+
   try {
-    const { studentId, semester, grades, calculatedGpa, totalCredits, scoredCredits ,session} = req.body;
-    const failedSubjects = [];
-    const studentAcc = await StudentAcc.findOne({ studentId });
-    // Validate required fields
-    if (!studentId || !semester || !grades || !calculatedGpa || !totalCredits || !scoredCredits||!session) {
-      throw new Error('Missing required fields');
-    }
-
-    const parsedGrades = JSON.parse(grades);
-    const studentRecord = await StudentGrades.findOne({ studentId });
+    // 1. Validate required fields
+    const requiredFields = [
+      'studentId', 'semester', 'grades', 'calculatedGpa',
+      'totalCredits', 'scoredCredits', 'semesterCredits', 'session'
+    ];
     
-    if (!studentRecord) {
-      return res.status(404).json({ error: 'Student record not found' });
+    for (const field of requiredFields) {
+      if (!req.body[field]) {
+        throw new Error(`Missing required field: ${field}`);
+      }
     }
 
-    let marksheetPath = null;
+    // 2. Parse inputs
+    const {
+      studentId,
+      semester,
+      grades: gradesString,
+      calculatedGpa,
+      totalCredits,
+      scoredCredits,
+      semesterCredits: semesterCreditsString,
+      clearedArrears = '[]',
+      newArrears = '[]',
+      session: academicSession
+    } = req.body;
 
-    // Process file if uploaded
-    if (req.file) {
-      const uploadDir = 'uploads/marksheets/';
-      if (!fs.existsSync(uploadDir)) {
-        fs.mkdirSync(uploadDir, { recursive: true });
-      }
+    const semesterNumber = semester.split(' ')[0];
+    const parsedGrades = JSON.parse(gradesString);
+    const parsedSemesterCredits = JSON.parse(semesterCreditsString);
+    const parsedClearedArrears = JSON.parse(clearedArrears);
+    const parsedNewArrears = JSON.parse(newArrears);
 
-      const fileExt = path.extname(req.file.originalname);
-      const filename = `${studentId}-${semester}-${Date.now()}${fileExt}`;
-      marksheetPath = path.join(uploadDir, filename);
-      fs.writeFileSync(marksheetPath, req.file.buffer);
+    // 3. Validate file upload
+    if (!req.file) {
+      throw new Error('Marksheet file is required');
     }
 
-    // Update grades in enrolledCourses
-    studentRecord.enrolledCourses = studentRecord.enrolledCourses.map(course => {
-      if (course.semester.includes(semester) && course.session===session){
-        const updatedCourse = {
-          ...course.toObject(),
-          gradeSubmittedAt: new Date(),
-        };
-        
-        if (parsedGrades[course.courseCode.trim()]) {
-          updatedCourse.grade = parsedGrades[course.courseCode.trim()];
-          updatedCourse.session = session;
+    console.log('Starting grade submission for:', studentId);
+    console.log('Semester credits data:', parsedSemesterCredits);
 
-          //Check for arrears
-          if (['RA', 'SA', 'W'].includes(parsedGrades[course.courseCode.trim()]) ){
-            failedSubjects.push({
-              subject_code: course.courseCode,
-              grade: parsedGrades[course.courseCode.trim()],
-              semester: semester,
-              session: session
-            });
-          }
-        }
-        
-        return updatedCourse;
-      }
-      return course;
-    });
+    // 4. Process file upload
+    const uploadDir = path.join(__dirname, 'uploads/marksheets/');
+    await fs.promises.mkdir(uploadDir, { recursive: true });
+    const filename = `${studentId}-${semesterNumber}-${Date.now()}${path.extname(req.file.originalname)}`;
+    marksheetPath = path.join(uploadDir, filename);
+    await fs.promises.writeFile(marksheetPath, req.file.buffer);
 
-    //Add failed subjects to arrears of students
-    if (failedSubjects.length > 0) {
-      if (!studentAcc.arrears) {
-        studentAcc.arrears = [];
-      }
+    // 5. Get student records
+    const [studentAcc, studentRecord] = await Promise.all([
+      StudentAcc.findOne({ studentId }),
+      StudentGrades.findOne({ studentId })
+    ]);
+
+    if (!studentRecord || !studentAcc) {
+      throw new Error('Student record not found');
+    }
+
+    // 6. Process new arrears
+    if (parsedNewArrears.length > 0) {
+      const currentSession = `${semesterNumber} ${academicSession}`;
       
-      // Only add new arrears that don't already exist
-      failedSubjects.forEach(failedSubject => {
-        const alreadyExists = studentAcc.arrears.some(
-          arr => arr.subject_code === failedSubject.subject_code && 
-                 arr.semester === failedSubject.semester
+      parsedNewArrears.forEach(subjectCode => {
+        // Find existing active arrear for this subject
+        const existingArrear = studentAcc.arrears.find(a => 
+          a.subject_code === subjectCode && a.status === 'active'
         );
-        
-        if (!alreadyExists) {
-          studentAcc.arrears.push({...failedSubject,status:'active'});
+    
+        if (existingArrear) {
+          // Add new attempt to existing active arrear
+          if (!existingArrear.attempts) existingArrear.attempts = [];
+          existingArrear.attempts.push(currentSession);
+          existingArrear.markModified('attempts');
+        } else {
+          // Create new arrear entry with initial attempt
+          const subject = studentRecord.enrolledCourses.find(c => c.courseCode === subjectCode);
+          studentAcc.arrears.push({
+            subject_code: subjectCode,
+            status: "active",
+            semester: currentSession,
+            credits: subject?.credits || 0,
+            attempts: [currentSession],
+            cleared_at: null,
+            cleared_grade: null
+          });
         }
       });
-      
-      await studentAcc.save();
+      studentAcc.markModified('arrears');
     }
 
-    // Add/update semester submission
-    studentRecord.semesterSubmissions = studentRecord.semesterSubmissions || {};
-    console.log("Semester: "+semester);
-    console.log("Session: "+session);
-    studentRecord.semesterSubmissions.set(semester, {
-      gpa: parseFloat(calculatedGpa),
+    // 7. Update enrolled courses
+    // 7. Update enrolled courses (fixed Mongoose document handling)
+studentRecord.enrolledCourses = studentRecord.enrolledCourses.map(course => {
+  // Convert Mongoose subdocument to plain object safely
+  const courseData = course.toObject ? course.toObject() : { ...course };
+
+  // Update regular course grades
+  if (!courseData.isReEnrolled && parsedGrades[courseData.courseCode]) {
+      return {
+          ...courseData,
+          grade: parsedGrades[courseData.courseCode],
+          gradeSubmittedAt: new Date()
+      };
+  }
+
+  // Update re-enrolled courses
+  if (courseData.isReEnrolled && parsedClearedArrears.includes(courseData.courseCode)) {
+      return {
+          ...courseData,
+          grade: parsedGrades[courseData.courseCode] || courseData.grade,
+          gradeSubmittedAt: new Date(),
+          isReEnrolled: false
+      };
+  }
+
+  return courseData;
+});
+
+// Force Mongoose to detect array changes
+studentRecord.markModified('enrolledCourses');
+
+// 8. Process semester credit updates (fixed NaN and object issues)
+Object.entries(parsedSemesterCredits).forEach(([originalSem, data]) => {
+  // Extract just the semester number from original semester (e.g., "1" from "1 NOV 2023")
+  const semNumber = originalSem.split(' ')[0];
+  
+  const existing = studentRecord.semesterSubmissions.get(semNumber) || {
+    totalCredits: 0,
+    scoredCredits: 0,
+    gpa: 0
+  };
+
+  // Convert existing values to numbers safely
+  const baseScored = Number(existing.scoredCredits) || 0;
+  const baseTotal = Number(existing.totalCredits) || 0;
+  const weighted = Number(data.weighted) || 0;
+
+  // Update values for the semester
+  const updatedScored = baseScored + weighted;
+  
+  const updatedGpa = baseTotal > 0 
+    ? parseFloat(((updatedScored / baseTotal) * 10).toFixed(2))
+    : 0;
+
+  // Update the semester entry using just the number
+  studentRecord.semesterSubmissions.set(semNumber, {
+    gpa: updatedGpa,
+    totalCredits: baseTotal,
+    scoredCredits: updatedScored,
+    marksheetPath: existing.marksheetPath || 'Arrear clearance',
+    submissionDate: existing.submissionDate || new Date(),
+    verified: existing.verified || false
+  });
+});
+
+// Remove direct DB update and rely on document save()
+// Add validation before saving
+const invalidEntries = [];
+studentRecord.semesterSubmissions.forEach((value, key) => {
+  if (isNaN(value.gpa) || isNaN(value.scoredCredits)) {
+      invalidEntries.push(key);
+  }
+});
+
+if (invalidEntries.length > 0) {
+  throw new Error(`Invalid calculations for semesters: ${invalidEntries.join(', ')}`);
+}
+
+// Mark map as modified for Mongoose
+studentRecord.markModified('semesterSubmissions');
+    // 9. Update current semester submission
+    studentRecord.semesterSubmissions.set(semesterNumber, {
+      gpa: calculatedGpa,
       totalCredits: parseInt(totalCredits),
       scoredCredits: parseInt(scoredCredits),
-      marksheetPath: marksheetPath,
+      marksheetPath,
       submissionDate: new Date(),
       verified: false
     });
 
-    await studentRecord.save();
-    await StudentAcc.updateOne(
-      { studentId },
-      { $set: { can_fill_grades: 0, grades_filled: semester } }
-    );
+    // 10. Update cleared arrears
+    const currentSession = `${semesterNumber} ${academicSession}`;
+studentAcc.arrears = studentAcc.arrears.map(arrear => {
+  if (arrear && parsedClearedArrears.includes(arrear.subject_code)) {
+    // Add final attempt and mark as closed
+    const clearedGrade = parsedGrades[arrear.subject_code];
     
-    res.status(200).json({ 
+    return {
+      ...arrear,
+      attempts: [...(arrear.attempts || []), currentSession],
+      status: "closed",
+      cleared_at: currentSession,
+      cleared_grade: clearedGrade || 'N/A',
+      // Preserve existing cleared_at if already set
+      cleared_at: arrear.cleared_at || currentSession
+    };
+  }
+  return arrear;
+});
+studentAcc.markModified('arrears');
+
+    // 11. Update student status
+    studentAcc.can_fill_grades = '0';
+    studentAcc.grades_filled = semesterNumber;
+
+    // 12. Save all changes
+    await Promise.all([
+      studentRecord.save(),
+      studentAcc.save()
+    ]);
+
+    operationSuccess = true;
+    
+    res.status(200).json({
       success: true,
-      message: 'Grades and marksheet submitted successfully',
-      filePath: marksheetPath
+      message: 'Grades submitted successfully',
+      filePath: marksheetPath,
+      updatedArrears: studentAcc.arrears,
+      updatedSemesters: studentRecord.semesterSubmissions
     });
 
   } catch (error) {
     console.error('Submission error:', error);
-    res.status(500).json({ 
+    res.status(500).json({
       success: false,
-      message: 'Failed to submit grades',
-      error: error.message
+      error: error.message,
+      message: 'Grade submission failed'
     });
+  } finally {
+    if (!operationSuccess && marksheetPath) {
+      fs.unlink(marksheetPath, () => {});
+    }
   }
 });
-
 // Get student grades
 app.get('/student-grades/:studentId/:semester/:sess', async (req, res) => {
   try {

@@ -42,7 +42,7 @@ const StudentDashboard = ({ services }) => {
         const response = await axios.get('http://localhost:5000/check-auth', {
           withCredentials: true,
         });
-
+        
         if (response.data.authenticated) {
           fetchAccountStatus();
         } else {
@@ -104,8 +104,8 @@ const StudentDashboard = ({ services }) => {
   // Service click handler
   const handleServiceClick = (serviceTitle) => {
     const routes = {
-      'Student Form': '/student-form',
-      'Semester Form': '/student-dashboard/semforms',
+      'Student Details': '/student-form',
+      'Semester Grades Upload': '/student-dashboard/semforms',
       'Reset Credentials': '/reset-credentials',
       'Semester Enrollment': '/semester-enroll'
     };

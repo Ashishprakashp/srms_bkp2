@@ -3,8 +3,12 @@ import axios from 'axios';
 import { Form, Table, Button, Alert, Spinner, Card, Row, Col, Badge, OverlayTrigger, Tooltip } from 'react-bootstrap';
 import TitleBar from './TitleBar.js';
 import StudentSideBar from './StudentSideBar.js';
+import { useNavigate } from 'react-router-dom';
 
 const GradeForm = () => {
+  const navigate = useNavigate();
+  const [isEditMode, setIsEditMode] = useState(false);
+  const [clearedArrears, setClearedArrears] = useState([]);
   const studentId = sessionStorage.getItem('student');
   const [student, setStudent] = useState(null);
   const [subjects, setSubjects] = useState([]);
@@ -17,23 +21,37 @@ const GradeForm = () => {
   const [totalCredits, setTotalCredits] = useState(0);
   const [scoredCredits, setScoredCredits] = useState(0);
   const [gradesAlreadyFilled, setGradesAlreadyFilled] = useState(false);
-  const [regularSubjects,setRegularSubjects] = useState([]);
-  const [arrears,setArrears] = useState([]);
-  
-  // Grade to grade point mapping
+  const [arrears, setArrears] = useState([]);
+  const [newArrears, setNewArrears] = useState([]);
+  const [semesterCreditsUpdates, setSemesterCreditsUpdates] = useState({});
+
   const gradePoints = {
-    'O': 10,
-    'A+': 9,
-    'A': 8,
-    'B+': 7,
-    'B': 6,
-    'C': 5,
-    'RA': 0,
-    'SA': 0,
-    'W': 0
+    'O': 10, 'A+': 9, 'A': 8, 'B+': 7, 'B': 6, 'C': 5, 
+    'RA': 0, 'SA': 0, 'W': 0
+  };
+  const getRowStyle = (subject) => {
+    const isArrear = arrears.some(a => a.subject_code === subject.subject_code);
+    const isCleared = clearedArrears.includes(subject.subject_code);
+    
+    // Base style with important flags to override any Bootstrap styles
+    const baseStyle = {
+      '--bs-table-bg': getBackgroundColor(subject.subject_type),
+      backgroundColor: `${getBackgroundColor(subject.subject_type)} !important`,
+      background: `${getBackgroundColor(subject.subject_type)} !important`,
+    };
+
+    if (isArrear) {
+      return {
+        ...baseStyle,
+        '--bs-table-bg': isCleared ? '#e8f5e9' : '#fff3e0',
+        backgroundColor: isCleared ? '#e8f5e9 !important' : '#fff3e0 !important',
+        background: isCleared ? '#e8f5e9 !important' : '#fff3e0 !important',
+      };
+    }
+
+    return baseStyle;
   };
 
-  // Allowed grades with descriptions
   const allowedGrades = [
     { value: 'O', description: 'Outstanding (90-100)' },
     { value: 'A+', description: 'Excellent (80-89)' },
@@ -46,74 +64,102 @@ const GradeForm = () => {
     { value: 'W', description: 'Withdrawal' },
   ];
 
-  // Calculate GPA and CGPA whenever grades change
+  const getBackgroundColor = (type) => {
+   
+    switch(type) {
+      case 'FC': return '#e3f2fd'; // Light blue
+      case 'RMC': return '#fff3e0'; // Light purple
+      case 'PCC': return '#e8f5e9'; // Light green
+      case 'PEC': return '#f3e5f5'; // Light orange
+      case 'EEC': return '#fce4ec'; // Light pink
+      default: return 'transparent';
+    }
+  };
+  
   useEffect(() => {
     const calculateGpaAndCgpa = async () => {
       if (subjects.length > 0 && Object.keys(grades).length > 0) {
-        // Calculate current semester GPA
         let currentSemesterCredits = 0;
         let currentSemesterWeightedSum = 0;
-        let currentSemesterTotalCredits = 0;
-        let currentSemesterScoredCredits = 0;
-        let hasValidGrades = false;
-  
+        const semesterUpdates = {};
+        const newlyCleared = [];
+        const detectedNewArrears = [];
+    
         subjects.forEach(subject => {
           const grade = grades[subject.subject_code];
           if (grade && gradePoints[grade] !== undefined) {
-            currentSemesterTotalCredits += subject.credits;
-            currentSemesterWeightedSum += subject.credits * gradePoints[grade];
-            if (gradePoints[grade] >= 5) {
-              currentSemesterScoredCredits += subject.credits;
+            const isArrear = arrears.some(a => a.subject_code === subject.subject_code);
+            
+            if (isArrear) {
+              const arrearData = arrears.find(a => a.subject_code === subject.subject_code);
+              const sem = arrearData.originalSemester;
+        
+              if (gradePoints[grade] >= 5) {
+                if (!semesterUpdates[sem]) {
+                  semesterUpdates[sem] = { credits: 0, weighted: 0 };
+                }
+                semesterUpdates[sem].credits += subject.credits * 10;
+                semesterUpdates[sem].weighted += subject.credits * gradePoints[grade];
+                newlyCleared.push(subject.subject_code);
+              }
+            } else {
+              currentSemesterCredits += subject.credits * 10;
+              if (gradePoints[grade] >= 5) {
+                currentSemesterWeightedSum += subject.credits * gradePoints[grade];
+              }
+              if (grade === 'RA') detectedNewArrears.push(subject.subject_code);
             }
-            hasValidGrades = true;
           }
         });
-  
-        if (hasValidGrades && currentSemesterTotalCredits > 0) {
-          const calculatedGpa = (currentSemesterWeightedSum / currentSemesterTotalCredits).toFixed(2);
+    
+        setSemesterCreditsUpdates(semesterUpdates);
+        setClearedArrears(newlyCleared);
+        setNewArrears(detectedNewArrears);
+    
+        if (currentSemesterCredits > 0) {
+          const calculatedGpa = (currentSemesterWeightedSum / currentSemesterCredits * 10).toFixed(2);
           setGpa(calculatedGpa);
-          setTotalCredits(currentSemesterTotalCredits);
-          setScoredCredits(currentSemesterScoredCredits);
-          
-          // Fetch previous semester data for CGPA calculation
-          try {
-            const response = await axios.get(`http://localhost:5000/student-grades-prev-sems/${studentId}`);
-            console.log(response.data);
-            if (response.data.success) {
-              let totalCumulativeCredits = currentSemesterTotalCredits;
-              let totalCumulativeWeightedSum = currentSemesterWeightedSum;
-              
-              // Process previous semesters
-              const prevSemesters = response.data.semesterSubmissions || {};
-              console.log(prevSemesters);
-              Object.entries(prevSemesters).forEach(([sem, data]) => {
-                if (sem !== student?.can_fill_grades && data.gpa && data.totalCredits) {
-                  totalCumulativeCredits += data.totalCredits;
-                  totalCumulativeWeightedSum += data.totalCredits * data.gpa;
-                }
-              });
-              
-              if (totalCumulativeCredits > 0) {
-                const calculatedCgpa = (totalCumulativeWeightedSum / totalCumulativeCredits).toFixed(2);
-                setCgpa(calculatedCgpa);
+          setTotalCredits(currentSemesterCredits);
+          setScoredCredits(currentSemesterWeightedSum);
+        }
+    
+        try {
+          const response = await axios.get(`http://localhost:5000/student-grades-prev-sems/${studentId}`);
+          if (response.data.success) {
+            let totalCumulativeCredits = currentSemesterCredits;
+            let totalCumulativeWeightedSum = currentSemesterWeightedSum;
+    
+            Object.entries(response.data.semesterSubmissions || {}).forEach(([sem, data]) => {
+              if (semesterUpdates[sem]) {
+                totalCumulativeCredits += semesterUpdates[sem].credits;
+                totalCumulativeWeightedSum += semesterUpdates[sem].weighted;
+              } else {
+                totalCumulativeCredits += data.totalCredits;
+                totalCumulativeWeightedSum += data.scoredCredits * 10;
               }
-            }
-          } catch (error) {
-            console.error('Error fetching previous grades:', error);
-            setCgpa(null);
+            });
+    
+            Object.entries(semesterUpdates).forEach(([sem, { credits, weighted }]) => {
+              if (!response.data.semesterSubmissions[sem]) {
+                totalCumulativeCredits += credits;
+                totalCumulativeWeightedSum += weighted;
+              }
+            });
+    
+            const calculatedCgpa = totalCumulativeCredits > 0 
+              ? (totalCumulativeWeightedSum / totalCumulativeCredits).toFixed(2)
+              : 0;
+            setCgpa(calculatedCgpa);
           }
-        } else {
-          setGpa(null);
+        } catch (error) {
+          console.error('Error fetching previous grades:', error);
           setCgpa(null);
-          setTotalCredits(0);
-          setScoredCredits(0);
         }
       }
     };
-  
     calculateGpaAndCgpa();
-  }, [grades, subjects, studentId, student?.can_fill_grades]);
-  
+  }, [grades, subjects, studentId, arrears]);
+
   useEffect(() => {
     const checkGradesStatus = async () => {
       try {
@@ -127,7 +173,6 @@ const GradeForm = () => {
         console.error('Error checking grade status:', error);
       }
     };
-    
     checkGradesStatus();
   }, [studentId]);
 
@@ -139,34 +184,29 @@ const GradeForm = () => {
         
         if (response.data.can_fill_grades !== "0") {
           const subjectsResponse = await axios.get("http://localhost:5000/semester-details", {
-            withCredentials: true,
             params: {
               course_name: response.data.branch,
               year: response.data.regulation,
               sem_no: response.data.can_fill_grades,
             }
           });
-          
-          //setSubjects(subjectsResponse.data.subjects);
+
+          const arrearsResponse = await axios.get(`http://localhost:5000/get-arrears/${studentId}`);
+          const arrearsWithSemester = arrearsResponse.data.map(arrear => ({
+            ...arrear,
+            originalSemester: arrear.semester
+          }));
+          setArrears(arrearsWithSemester);
+
           const initialGrades = {};
           subjectsResponse.data.subjects.forEach(subject => {
             initialGrades[subject.subject_code] = '';
           });
           setGrades(initialGrades);
-          const arrearsResponse = await axios.get(`http://localhost:5000/get-arrears/${studentId}`,{
-            withCredentials: true,
-          })
-          
-          setRegularSubjects(subjectsResponse.data.subjects);
-          
-          console.log(arrearsResponse.data);
-          console.log(subjectsResponse.data.subjects);
-          setArrears(arrearsResponse.data);
-          const mergedData = [...subjectsResponse.data.subjects,...arrearsResponse.data];
-          console.log("MergedData: "+mergedData);
-          setSubjects(mergedData);  
+
+          const mergedData = [...subjectsResponse.data.subjects, ...arrearsWithSemester];
+          setSubjects(mergedData);
         }
-        
         setLoading(false);
       } catch (error) {
         console.error('Error fetching data:', error);
@@ -174,7 +214,6 @@ const GradeForm = () => {
         setLoading(false);
       }
     };
-
     fetchStudentDetails();
   }, [studentId]);
 
@@ -210,42 +249,23 @@ const GradeForm = () => {
       alert('Please complete all grade fields and upload marksheet');
       return;
     }
-  
-    // Calculate credits before submission
-    let currentTotalCredits = 0;
-    let currentScoredCredits = 0;
-  
-    subjects.forEach(subject => {
-      const grade = grades[subject.subject_code];
-      currentTotalCredits += subject.credits*10;
-      
-      if (grade && gradePoints[grade] !== undefined) {
-        // Calculate earned credits based on grade points
-        const gradePoint = gradePoints[grade];
-        
-        // For RA/SA/W (gradePoint = 0), no credits are earned
-        if (gradePoint > 0) {
-          // Calculate percentage of credits earned based on grade point
-          // Example: B grade (gradePoint = 6) earns 60% of credits (6/10)
-          currentScoredCredits += subject.credits * gradePoint;
-        }
-      }
-    });
+
     const formData = new FormData();
     formData.append('marksheet', marksheet);
     formData.append('studentId', studentId);
     formData.append('semester', student.can_fill_grades.split(" ")[0]);
     formData.append('grades', JSON.stringify(grades));
     formData.append('calculatedGpa', gpa);
-    formData.append('totalCredits', currentTotalCredits);
-    formData.append('scoredCredits', currentScoredCredits);
-    formData.append('session',student.can_fill_grades.split(" ")[1]+" "+student.can_fill_grades.split(" ")[2]);
-  
+    formData.append('totalCredits', totalCredits);
+    formData.append('scoredCredits', scoredCredits);
+    formData.append('semesterCredits', JSON.stringify(semesterCreditsUpdates));
+    formData.append('clearedArrears', JSON.stringify(clearedArrears));
+    formData.append('newArrears', JSON.stringify(newArrears));
+    formData.append('session', student.can_fill_grades.split(" ")[1] + " " + student.can_fill_grades.split(" ")[2]);
+
     try {
       const response = await axios.post('http://localhost:5000/submit-grades', formData, {
-        headers: {
-          'Content-Type': 'multipart/form-data'
-        }
+        headers: { 'Content-Type': 'multipart/form-data' }
       });
       
       if (response.data.success) {
@@ -253,8 +273,8 @@ const GradeForm = () => {
         window.location.reload();
       }
     } catch (error) {
-      console.error("Error submitting grades:", error);
-      alert("Failed to submit grades. Please try again.");
+      console.error("Error submitting grades:", error.response?.data || error.message);
+      alert(`Failed to submit grades: ${error.response?.data?.error || error.message}`);
     }
   };
 
@@ -294,8 +314,15 @@ const GradeForm = () => {
       <TitleBar />
       <div className="d-flex vh-100 bg-light">
         <StudentSideBar />
-        <div className="flex-grow-1 p-4 overflow-auto">
+        
+        <div className="flex-grow-1 p-4 overflow-auto position-relative">
+        <div className="d-flex justify-content-end mb-3 me-3">
+      <Button onClick={() => navigate('/student-dashboard')}>
+        Back
+      </Button>
+    </div>
           <div className="container-fluid">
+          
             {gradesAlreadyFilled ? (
               <div className="alert alert-info mt-4">
                 <i className="bi bi-info-circle-fill me-2"></i>
@@ -352,7 +379,6 @@ const GradeForm = () => {
                       </Card.Body>
                     </Card>
 
-                    {/* GPA/CGPA Display Card */}
                     {(gpa !== null || cgpa !== null) && (
                       <Card className="mb-4 shadow-sm border-success">
                         <Card.Body className="p-3">
@@ -364,14 +390,10 @@ const GradeForm = () => {
                                     <i className="bi bi-calculator-fill me-2"></i>
                                     Current Semester GPA
                                   </h5>
-                                  <small className="text-muted">
-                                    Based on entered grades
-                                  </small>
+                                  <small className="text-muted">Based on entered grades</small>
                                 </div>
                                 <div>
-                                  <Badge bg="success" className="fs-4 px-3 py-2">
-                                    {gpa}
-                                  </Badge>
+                                  <Badge bg="success" className="fs-4 px-3 py-2">{gpa}</Badge>
                                 </div>
                               </div>
                               <div className="small text-muted">
@@ -379,6 +401,17 @@ const GradeForm = () => {
                               </div>
                             </Col>
                             <Col md={6}>
+                            {Object.keys(semesterCreditsUpdates).length > 0 && (
+  <div className="mb-2">
+    <h6 className="text-muted">Arrear Credits Cleared</h6>
+    <div className="d-flex justify-content-between">
+      <span>Subjects: {clearedArrears.length}</span>
+      <span>
+      Credits: {Object.values(semesterCreditsUpdates).reduce((sum, curr) => sum + curr.credits, 0)}
+      </span>
+    </div>
+  </div>
+)}
                               {cgpa !== null && (
                                 <>
                                   <div className="d-flex justify-content-between align-items-center mb-2">
@@ -387,14 +420,10 @@ const GradeForm = () => {
                                         <i className="bi bi-graph-up me-2"></i>
                                         Projected CGPA
                                       </h5>
-                                      <small className="text-muted">
-                                        Including previous semesters
-                                      </small>
+                                      <small className="text-muted">Including previous semesters</small>
                                     </div>
                                     <div>
-                                      <Badge bg="primary" className="fs-4 px-3 py-2">
-                                        {cgpa}
-                                      </Badge>
+                                      <Badge bg="primary" className="fs-4 px-3 py-2">{cgpa}</Badge>
                                     </div>
                                   </div>
                                 </>
@@ -411,7 +440,6 @@ const GradeForm = () => {
                       </Card>
                     )}
 
-                    {/* Grade Reference Card */}
                     <Card className="mb-4 shadow-sm">
                       <Card.Body>
                         <div className="d-flex flex-wrap gap-2">
@@ -421,12 +449,7 @@ const GradeForm = () => {
                               placement="top"
                               overlay={<Tooltip>{grade.description}</Tooltip>}
                             >
-                              <Badge 
-                                bg="light" 
-                                text="dark"
-                                className="p-2 border d-flex align-items-center"
-                                style={{ cursor: 'help' }}
-                              >
+                              <Badge bg="light" text="dark" className="p-2 border d-flex align-items-center" style={{ cursor: 'help' }}>
                                 <strong className="me-2">{grade.value}</strong>
                                 <span className="text-muted">{grade.description}</span>
                               </Badge>
@@ -441,52 +464,83 @@ const GradeForm = () => {
                         <Card.Body className="p-4">
                           <Form onSubmit={handleSubmit}>
                             <div className="table-responsive">
-                              <Table hover className="mb-0">
-                                <thead className="bg-primary text-white">
-                                  <tr>
-                                    <th className="text-center">#</th>
-                                    <th>Course Code</th>
-                                    <th>Course Title</th>
-                                    <th className="text-center">Credits</th>
-                                    <th className="text-center">Type</th>
-                                    <th className="text-center">Grade</th>
-                                  </tr>
-                                </thead>
+                              <Table hover className="mb-0 border border-black">
+                                <thead >
+                                <tr style={{ backgroundColor: '#0d6efd', color: 'white' }}>
+                                      <th className="text-center">#</th>
+                                      <th>Course Code</th>
+                                      <th>Course Title</th>
+                                      <th className="text-center">Credits</th>
+                                      <th className="text-center">Type</th>
+                                      <th className="text-center">Grade</th>
+                                    </tr>
+                                  </thead>
                                 <tbody>
                                   {subjects.length > 0 ? (
-                                    subjects.map((subject, index) => (
-                                      <tr key={subject._id}>
-                                        <td className="text-center">{index + 1}</td>
-                                        <td className="fw-bold">{subject.subject_code}</td>
-                                        <td>{subject.subject_name}</td>
-                                        <td className="text-center">{subject.credits}</td>
-                                        <td className="text-center">
-                                          <Badge bg="info" className="text-uppercase">
-                                            {subject.subject_type}
-                                          </Badge>
-                                        </td>
-                                        <td>
-                                          <div className="d-flex justify-content-center">
-                                            <Form.Control
-                                              type="text"
-                                              value={grades[subject.subject_code] || ''}
-                                              onChange={(e) => handleGradeChange(subject.subject_code, e.target.value)}
-                                              className="text-center"
-                                              style={{ width: '100px' }}
-                                              placeholder="Enter grade"
-                                              list="gradeSuggestions"
-                                            />
-                                            <datalist id="gradeSuggestions">
-                                              {allowedGrades.map((grade, idx) => (
-                                                <option key={idx} value={grade.value}>
-                                                  {grade.description}
-                                                </option>
-                                              ))}
-                                            </datalist>
-                                          </div>
-                                        </td>
-                                      </tr>
-                                    ))
+                                    subjects.map((subject, index) => {
+                                      const isArrear = arrears.some(a => a.subject_code === subject.subject_code);
+                                      const isCleared = clearedArrears.includes(subject.subject_code);
+                                      const gradeValue = grades[subject.subject_code] || '';
+                                      // Debugging:
+  console.log(`Subject ${subject.subject_code} (${subject.subject_name}):`, {
+    type: subject.subject_type,
+    color: getBackgroundColor(subject.subject_type),
+    isArrear,
+    isCleared
+  });
+                                      return (
+                                        <tr 
+                                          key={subject._id} 
+                                          style={getRowStyle(subject)}
+                                          
+                                        >
+                                          <td className="text-center">{index + 1}</td>
+                                          <td className="fw-bold">
+                                            {subject.subject_code}
+                                            {isArrear && (
+                                              <OverlayTrigger
+                                                placement="right"
+                                                overlay={<Tooltip>{isCleared ? 'Arrear cleared' : 'Pending arrear'}</Tooltip>}
+                                              >
+                                                <Badge bg={isCleared ? 'success' : 'danger'} className="ms-2">
+                                                  {isCleared ? '✓' : 'Arrear'}
+                                                </Badge>
+                                              </OverlayTrigger>
+                                            )}
+                                          </td>
+                                          <td>{subject.subject_name}</td>
+                                          <td className="text-center">{subject.credits}</td>
+                                          <td className="text-center">
+                                            <Badge bg="info" className="text-uppercase">
+                                              {subject.subject_type}
+                                            </Badge>
+                                          </td>
+                                          <td>
+                                            <div className="d-flex justify-content-center align-items-center">
+                                              <Form.Control
+                                                type="text"
+                                                value={gradeValue}
+                                                onChange={(e) => handleGradeChange(subject.subject_code, e.target.value)}
+                                                className="text-center"
+                                                style={{ width: '110px' }}
+                                                placeholder="Enter grade"
+                                                list={`gradeSuggestions-${index}`}
+                                              />
+                                              <datalist id={`gradeSuggestions-${index}`}>
+                                                {allowedGrades.map((grade, idx) => (
+                                                  <option key={idx} value={grade.value}>{grade.description}</option>
+                                                ))}
+                                              </datalist>
+                                              {isArrear && gradeValue && gradePoints[gradeValue] >= 5 && (
+                                                <OverlayTrigger placement="right" overlay={<Tooltip>Arrear will be cleared</Tooltip>}>
+                                                  <span className="ms-2 text-success"><i className="bi bi-check-circle-fill"></i></span>
+                                                </OverlayTrigger>
+                                              )}
+                                            </div>
+                                          </td>
+                                        </tr>
+                                      );
+                                    })
                                   ) : (
                                     <tr>
                                       <td colSpan="6" className="text-center py-4">
@@ -501,7 +555,6 @@ const GradeForm = () => {
                               </Table>
                             </div>
 
-                            {/* Marksheet Upload Section */}
                             <Card className="mt-4 border-0 shadow-sm">
                               <Card.Body>
                                 <h5 className="mb-3 text-primary">

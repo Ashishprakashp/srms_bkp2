@@ -24,16 +24,14 @@ const StudentMgmt = () => {
       } catch (error) {
         navigate('/');
       } finally {
-        setLoading(false);
+        
       }
     };
 
     verifyAuth();
   }, [navigate]);
 
-  if (loading) {
-    return <div>Loading...</div>; // Prevents blank screen issues
-  }
+  
 
   return (
     <>
@@ -43,7 +41,10 @@ const StudentMgmt = () => {
         <SideBar />
 
         {/* Main Content */}
-        <div className="main-content-ad-dboard flex-grow-1" style={{ overflowY: 'auto' }}>
+        <div 
+  className="main-content-ad-dboard flex-grow-1" 
+  style={{ backgroundColor: '#e3eeff', overflowY: 'auto' }}
+>
           <div className="p-4 w-100">
             <Button className="float-end px-4" onClick={() => navigate('/admin-dashboard')}>
               Back

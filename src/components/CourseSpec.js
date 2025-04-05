@@ -368,19 +368,24 @@ const handleRemoveSemester = async (semesterId) => {
                 />
               </Form.Group>
               <Form.Group className="mb-3">
-                <Form.Label>Subject Type</Form.Label>
-                <Form.Select
-                  value={editingCourse.subject_type}
-                  onChange={(e) =>
-                    setEditingCourse({ ...editingCourse, subject_type: e.target.value })
-                  }
-                  required
-                >
-                  <option value="Core">Core</option>
-                  <option value="Elective">Elective</option>
-                  <option value="Lab">Lab</option>
-                </Form.Select>
-              </Form.Group>
+              <Form.Label>Subject Type</Form.Label>
+              <Form.Select
+               value={editingCourse.subject_type}
+                onChange={(e) =>
+                  setEditingCourse({ ...editingCourse, subject_type: e.target.value })
+                }
+                required
+              >
+                <option value="">Select Type</option>
+                <option value="FC">FC</option>
+                <option value="RMC">RMC</option>
+                <option value="PCC">PCC</option>
+                <option value="PEC">PEC</option>
+                <option value="EEC">EEC</option>
+              </Form.Select>
+              
+            </Form.Group>
+              
               <Button variant="primary" type="submit">
                 Update Subject
               </Button>

@@ -256,7 +256,7 @@ export default function StudentLoginCr() {
                     {!showCreateLogin && !showAutoLoginCreation ? (
                         // Initial options as cards
                         <>
-                            <Button className="float-end px-4" onClick={() => navigate('/admin-dashboard')}>Back</Button>
+                            <Button className="float-end px-4" onClick={() => navigate('/admin-dashboard/student-mgmt')}>Back</Button>
                             <h1 className="mb-4">Student Management</h1>
                             <Row xs={1} sm={2} md={2} className="g-4">
                                 {[

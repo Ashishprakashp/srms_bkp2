@@ -42,6 +42,7 @@ const StudentForm = () => {
       passportPhoto: '',
       passportPhotoFile: null, // Added to store the file object
       mobile: '',
+      countryCode:'',
     },
     familyInformation: {
       fatherName: '',
@@ -480,6 +481,90 @@ const StudentForm = () => {
     }
   };
 
+  const calculateCompletionPercentage = () => {
+    let completedFields = 0;
+    let totalFields = 0;
+  
+    // Page 1 validation
+    const { personalInformation } = formData;
+    const page1Fields = [
+      personalInformation.aadhar,
+      personalInformation.register,
+      personalInformation.branch,
+      personalInformation.regulation,
+      personalInformation.batch,
+      personalInformation.dob,
+      personalInformation.sex,
+      personalInformation.blood !== '--',
+      personalInformation.community !== '--',
+      personalInformation.mail,
+      personalInformation.mobile,
+      personalInformation.passportPhoto,
+      personalInformation.countryCode
+    ];
+    completedFields += page1Fields.filter(Boolean).length;
+    totalFields += page1Fields.length;
+  
+    // Page 2 validation
+    const { familyInformation } = formData;
+    const page2Fields = [
+      familyInformation.fatherName,
+      familyInformation.fatherOcc,
+      familyInformation.fatherInc ,
+      familyInformation.motherName,
+      familyInformation.motherOcc,
+      familyInformation.motherInc ,
+      familyInformation.parentAddr,
+      familyInformation.parentContact,
+      familyInformation.parentMail,
+    ];
+    completedFields += page2Fields.filter(Boolean).length;
+    totalFields += page2Fields.length;
+  
+    // Page 3 validation
+    const { education } = formData;
+    const page3Fields = [
+      education.xSchool,
+      education.xBoard!== '',
+      education.xYear,
+      education.xPercentage,
+      education.xiiSchool,
+      education.xiiBoard!== '',
+      education.xiiYear,
+      education.xiiPercentage ,
+      education.ugCollege,
+      education.ugYear ,
+      education.ugPercentage ,
+      education.ugProvisionalCertificate,
+      education.xMarksheet,
+      education.xiiMarksheet
+    ];
+    completedFields += page3Fields.filter(Boolean).length;
+    totalFields += page3Fields.length;
+  
+    // Page 4 validation (only for non-BTECH)
+    if (!isBtech) {
+      const { entranceAndWorkExperience } = formData;
+      
+      const page4Fields = [
+        entranceAndWorkExperience.scorecard,
+        entranceAndWorkExperience.entrance,
+        entranceAndWorkExperience.entranceRegister,
+        entranceAndWorkExperience.entranceScore,
+        entranceAndWorkExperience.entranceYear,
+      ];
+      completedFields += page4Fields.filter(Boolean).length;
+      totalFields += page4Fields.length;
+    }
+  
+    // Page 5 validation
+    const page5Fields = [formData.acceptance];
+    completedFields += page5Fields.filter(Boolean).length;
+    totalFields += page5Fields.length;
+  
+    return Math.round((completedFields / totalFields) * 100);
+  };
+
   if (loading) {
     return (
       <div className="d-flex justify-content-center align-items-center vh-100">
@@ -565,7 +650,23 @@ const StudentForm = () => {
                 </Nav>
               </Col>
             </Row>
-
+            {/* Progress Bar */}
+<Row className="mb-4">
+  <Col>
+    <div className="progress" style={{ height: '25px' }}>
+      <div
+        className="progress-bar progress-bar-striped progress-bar-animated  fw-bold fs-5"
+        role="progressbar"
+        style={{ width: `${calculateCompletionPercentage()}%` }}
+        aria-valuenow={calculateCompletionPercentage()}
+        aria-valuemin="0"
+        aria-valuemax="100"
+      >
+        {calculateCompletionPercentage()}% Complete
+      </div>
+    </div>
+  </Col>
+</Row>
             {/* Form Content */}
             <Row className="justify-content-center">
               <Col xl={10} lg={12} md={12}>

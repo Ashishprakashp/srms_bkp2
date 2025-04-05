@@ -64,10 +64,16 @@ const StudentAccSchema = new mongoose.Schema({
         type: String,
         required: [true, 'facultyAdvisor is required']
       },
-      arrears:{
-        type: [mongoose.Schema.Types.Mixed], 
-        default: []
-      },
+      arrears: [{
+        subject_code: String,
+        status: String,
+        semester: String,
+        identified_at: String,
+        cleared_at: String,
+        credits: Number,
+        attempts: [String],      // Array of session strings
+        cleared_grade: String    // Grade that cleared the arrear
+      }],
       can_enroll:{
         type: String,
         default:"0",

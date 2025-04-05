@@ -52,10 +52,10 @@ const StudentDetailsApproval = () => {
         }, {});
 
         setStudentGroups(Object.values(groups));
-        setLoading(false);
+        
       } catch (error) {
         setError('Failed to fetch student data');
-        setLoading(false);
+        
       }
     };
 
@@ -96,15 +96,7 @@ const StudentDetailsApproval = () => {
     });
   };
 
-  if (loading) {
-    return (
-      <div className="student-approval-loading">
-        <Spinner animation="border" role="status">
-          <span className="visually-hidden">Loading...</span>
-        </Spinner>
-      </div>
-    );
-  }
+
 
   if (error) {
     return (

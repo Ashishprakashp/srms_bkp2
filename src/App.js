@@ -29,10 +29,10 @@ import StudentReport from './components/StudentReport.js';
 
 function App() {
   const services3 = [
-    { title: "Student Form", description: "Student Form"},
+    { title: "Student Details", description: "Fill in the personal and education details"},
     
-    { title: "Semester Enrollment", description: "Semester Enrollment"},
-    { title: "Semester Form", description: "Semester Form" },
+    { title: "Semester Enrollment", description: "Enroll here for each semester"},
+    { title: "Semester Grades Upload", description: "Upload your semester grades for verification" },
     { title: "Notifications", description: "Send important updates to students."}
   ];
 

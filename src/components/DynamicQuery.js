@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Table, Form, Button, Row, Col, Card, Spinner } from 'react-bootstrap';
+import { Table, Form, Button, Row, Col, Card, Spinner ,Pagination} from 'react-bootstrap';
 import axios from 'axios';
 import TitleBar from './TitleBar.js';
 import SideBar from './SideBar.js';
@@ -9,7 +9,10 @@ import 'jspdf-autotable';
 import autoTable from 'jspdf-autotable';
 import { utils, writeFile } from 'xlsx';
 
+
 const DynamicQuery = () => {
+  const [currentPage, setCurrentPage] = useState(1);
+  const [studentsPerPage] = useState(10);
   const navigate = useNavigate();
   const [showLogoutModal, setShowLogoutModal] = useState(false);
   const handleLogout = async () => {
@@ -425,6 +428,27 @@ const downloadExcel = () => {
   writeFile(workbook, `AnnaUniv_IST_Students_${date}.xlsx`);
 };
 
+const indexOfLastStudent = currentPage * studentsPerPage;
+const indexOfFirstStudent = indexOfLastStudent - studentsPerPage;
+const currentStudents = sortedStudents.slice(indexOfFirstStudent, indexOfLastStudent);
+const totalPages = Math.ceil(sortedStudents.length / studentsPerPage);
+
+const PaginationComponent = () => (
+  <Pagination className="mt-3 justify-content-center">
+    {[...Array(Math.ceil(sortedStudents.length / studentsPerPage)).keys()].map((number) => (
+      <Pagination.Item
+        key={number + 1}
+        active={number + 1 === currentPage}
+        onClick={() => setCurrentPage(number + 1)}
+      >
+        {number + 1}
+      </Pagination.Item>
+    ))}
+  </Pagination>
+);
+
+
+
 return (
   <>
   <TitleBar />
@@ -432,7 +456,9 @@ return (
         <SideBar onLogoutClick={() => setShowLogoutModal(true)} />
         <div className='main-content-ad-dboard flex-grow-1 overflow-y-auto'>
 <div className="p-4">
+<Button className="float-end px-4" onClick={() => navigate('/admin-dashboard/student-mgmt')}>Back</Button>
 <h2 className="mb-4">Student Query System</h2>
+
 {showLogoutModal && (
               <div className="logout-modal-overlay">
                 <div className="logout-modal-content p-5">
@@ -533,7 +559,7 @@ Searching...
 </>
 ) : 'Search Students'}
 </Button>
-<Button variant="primary" onClick={downloadExcel} disabled={students.length === 0}>
+<Button variant="primary" onClick={downloadExcel} disabled={students.length === 0} className='ms-5'>
       Download Excel
     </Button>
 </div>
@@ -575,19 +601,20 @@ return (
 </tr>
 </thead>
 <tbody>
-{sortedStudents.map((student) => (
-<tr key={student._id}>
-<td>{student.studentId}</td>
-<td>{student.name}</td>
-<td>{student.branch}</td>
-{queriedAttributes.map(path => {
-const value = getNestedValue(student, path);
-return <td key={path}>{value === '-' ? '' : value}</td>;
-})}
-</tr>
-))}
+  {currentStudents.map((student) => (
+    <tr key={student._id}>
+      <td>{student.studentId}</td>
+      <td>{student.name}</td>
+      <td>{student.branch}</td>
+      {queriedAttributes.map(path => {
+        const value = getNestedValue(student, path);
+        return <td key={path}>{value === '-' ? '' : value}</td>;
+      })}
+    </tr>
+  ))}
 </tbody>
 </Table>
+<PaginationComponent />
 </div>
 ) : (
 <div className="text-center py-4 text-muted">
