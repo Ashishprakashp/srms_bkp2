@@ -54,16 +54,13 @@ const sanitizeDeep = (obj) => {
 
   const sanitized = {};
   for (const [key, value] of Object.entries(obj)) {
-    // Sanitize MongoDB operators in keys
-    const cleanKey = key.replace(/^\$/, '_').replace(/\./g, '_');
-    
-    // Sanitize values recursively
-    const cleanValue = sanitizeDeep(value);
-    
-    sanitized[cleanKey] = cleanValue;
+    // Only sanitize values, keep original keys (including $ and .)
+    sanitized[key] = sanitizeDeep(value);
   }
+
   return sanitized;
 };
+
 // XSS middleware
 const xssMiddleware = (req, res, next) => {
   if (req.body) req.body = sanitizeDeep(req.body);
@@ -84,7 +81,7 @@ app.use(cors({
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-app.use(mongoSanitize());
+//app.use(mongoSanitize());
 app.use(xssMiddleware);
 
 app.use(cookieParser());
@@ -1132,6 +1129,7 @@ const upload = multer({
 
 const uploadMiddleware = upload.fields([
   { name: "passportPhoto", maxCount: 1 },
+  { name: "aadharFile", maxCount: 1 },
   { name: "xMarksheet", maxCount: 1 },
   { name: "xiiMarksheet", maxCount: 1 },
   { name: "ugProvisionalCertificate", maxCount: 1 },
@@ -1186,6 +1184,7 @@ app.post("/student", uploadMiddleware, async (req, res) => {
       movedFilePaths.xiiMarksheet = await saveFile(req.files.xiiMarksheet?.[0], "xiiMarksheet");
       movedFilePaths.ugProvisionalCertificate = await saveFile(req.files.ugProvisionalCertificate?.[0], "ugProvisionalCertificate");
       movedFilePaths.scorecard = await saveFile(req.files.scorecard?.[0], "scorecard");
+      movedFilePaths.aadharFile = await saveFile(req.files.aadharFile?.[0], "aadharFile");
 
       if (req.files.certificates) {
         movedFilePaths.certificates = await Promise.all(
@@ -1200,6 +1199,7 @@ app.post("/student", uploadMiddleware, async (req, res) => {
       personalInformation: {
         ...personalInformation,
         passportPhoto: movedFilePaths.passportPhoto || "",
+        aadharFile: movedFilePaths.aadharFile || "",
       },
       education: {
         ...education,
@@ -1715,7 +1715,7 @@ app.post('/save-page-data', uploadMiddleware, async (req, res) => {
       }
 
       const ext = path.extname(file.originalname);
-      const filename = `${register}_${fieldname}${index > 0 ? `_${index}` : ""}${ext}`;
+      const filename = `${register}_${fieldname}${index > 0 ? `_${index} `: ""}${ext}`;
       const relativeFilePath = path.join("uploads", branch, regulation, batch, register, filename); // Relative path
       const absoluteFilePath = path.join(process.cwd(), relativeFilePath); // Absolute path
 
@@ -1735,7 +1735,9 @@ app.post('/save-page-data', uploadMiddleware, async (req, res) => {
       if (pageData.personalInformation && req.files.passportPhoto && req.files.passportPhoto[0]) {
         movedFilePaths.passportPhoto = await saveFile(req.files.passportPhoto[0], "passportPhoto");
       }
-      
+      if (pageData.personalInformation && req.files.aadharFile && req.files.aadharFile[0]) {
+        movedFilePaths.aadharFile = await saveFile(req.files.aadharFile[0], "aadharFile");
+      }
 
 
       // Save education-related files ONLY if education data is present in the request
@@ -1828,7 +1830,7 @@ app.post('/save-page-data', uploadMiddleware, async (req, res) => {
           ...completeData.entranceAndWorkExperience,
         };
       }
-
+      console.log(student);
       // Save the updated student record
       await student.save();
       console.log("2");
@@ -2325,8 +2327,8 @@ app.post('/submit-grades', upload.single('marksheet'), async (req, res) => {
         if (existingArrear) {
           // Add new attempt to existing active arrear
           if (!existingArrear.attempts) existingArrear.attempts = [];
-          existingArrear.attempts.push(currentSession);
-          existingArrear.markModified('attempts');
+          existingArrear.attempts = [...(existingArrear.attempts || []), currentSession];
+          existingArrear.markModified('arrears'); // Mark the entire arrears array as modified
         } else {
           // Create new arrear entry with initial attempt
           const subject = studentRecord.enrolledCourses.find(c => c.courseCode === subjectCode);
@@ -2456,7 +2458,7 @@ studentAcc.arrears = studentAcc.arrears.map(arrear => {
 studentAcc.markModified('arrears');
 
     // 11. Update student status
-    studentAcc.can_fill_grades = '0';
+    //studentAcc.can_fill_grades = '0';
     studentAcc.grades_filled = semesterNumber;
 
     // 12. Save all changes
@@ -2795,34 +2797,99 @@ app.get('/get-arrears/:studentId', async (req, res) => {
 
 app.post('/query-students', async (req, res) => {
   try {
-    const { query, sortField, sortDirection } = req.body;
+    const { query = {}, sortField, sortDirection } = req.body;
 
-    // Separate conditions by collection
+    // 1. Separate conditions by collection
     const accsConditions = [];
     const detailsConditions = [];
     const gradesConditions = [];
+    const arrearsConditions = [];
 
     if (query.$and) {
       query.$and.forEach(condition => {
         const [path, value] = Object.entries(condition)[0];
         
-        if (path.startsWith('details.')) {
-          detailsConditions.push({ [path.replace('details.', '')]: value });
+        if (path === 'batch') {
+          const [fromYear, toYear] = value.split('-');
+          accsConditions.push({ 
+            $and: [
+              { from_year: fromYear },
+              { to_year: toYear }
+            ]
+          });
+        }
+        else if (path === 'arrears') {
+          // Handle arrears conditions specially
+          const [operator, val] = Object.entries(value)[0];
+          
+          if (operator === 'hasSubject') {
+            // Filter by subject code
+            arrearsConditions.push({
+              'arrears.subject_code': val,
+              'arrears.status': 'active'
+            });
+          } else {
+            // Count active arrears with null check
+            const numericValue = parseInt(val);
+            if (!isNaN(numericValue)) {
+              const comparison = operator === 'equals' ? '$eq' : 
+                              operator === 'greaterThan' ? '$gt' : '$lt';
+              
+              arrearsConditions.push({
+                $expr: {
+                  [comparison]: [
+                    {
+                      $cond: {
+                        if: { $isArray: "$arrears" },
+                        then: {
+                          $size: {
+                            $filter: {
+                              input: "$arrears",
+                              as: "arr",
+                              cond: { $eq: ["$$arr.status", "active"] }
+                            }
+                          }
+                        },
+                        else: 0
+                      }
+                    },
+                    numericValue
+                  ]
+                }
+              });
+            }
+          }
+        }
+        else if (path.startsWith('details.')) {
+          const cleanPath = path.replace('details.', '');
+          detailsConditions.push({ [cleanPath]: value });
         } else if (path.startsWith('grades.')) {
-          gradesConditions.push({ [path.replace('grades.', '')]: value });
+          const cleanPath = path.replace('grades.', '');
+          gradesConditions.push({ [cleanPath]: value });
         } else {
           accsConditions.push(condition);
         }
       });
     }
 
-    // Base pipeline
+    // 2. Build pipeline with initial $addFields to ensure arrears exists
     const pipeline = [
-      { $match: accsConditions.length > 0 ? { $and: accsConditions } : {} }
+      {
+        $addFields: {
+          arrears: { $ifNull: ["$arrears", []] }
+        }
+      },
+      { 
+        $match: {
+          ...(accsConditions.length > 0 || arrearsConditions.length > 0 ? { 
+            $and: [...accsConditions, ...arrearsConditions] 
+          } : {})
+        }
+      }
     ];
 
-    // Add details lookup with conditions
-    pipeline.push({
+    // Rest of the pipeline remains the same...
+    const detailsLookup = {
       $lookup: {
         from: 'studentdetails',
         let: { registerNumber: '$studentId' },
@@ -2836,10 +2903,10 @@ app.post('/query-students', async (req, res) => {
         ],
         as: 'details'
       }
-    });
+    };
+    pipeline.push(detailsLookup);
 
-    // Add grades lookup with conditions
-    pipeline.push({
+    const gradesLookup = {
       $lookup: {
         from: 'studentgrades',
         let: { registerNumber: '$studentId' },
@@ -2853,9 +2920,10 @@ app.post('/query-students', async (req, res) => {
         ],
         as: 'grades'
       }
-    });
+    };
+    pipeline.push(gradesLookup);
 
-    // Add post-lookup matching
+    // Post-lookup matching
     const postMatches = [];
     if (detailsConditions.length > 0) postMatches.push({ 'details.0': { $exists: true } });
     if (gradesConditions.length > 0) postMatches.push({ 'grades.0': { $exists: true } });
@@ -2864,31 +2932,34 @@ app.post('/query-students', async (req, res) => {
       pipeline.push({ $match: { $and: postMatches } });
     }
 
-    // Add projection and sorting
-    pipeline.push(
-      // Update the projection in the aggregation pipeline
-{
-  $project: {
-    studentId: 1,
-    name: 1,
-    branch: 1,
-    regulation: 1,
-    _class: 1,
-    facultyAdvisor: 1,
-    personalInformation: { $arrayElemAt: ['$details.personalInformation', 0] },
-    familyInformation: { $arrayElemAt: ['$details.familyInformation', 0] },
-    education: { $arrayElemAt: ['$details.education', 0] },
-    grades: { $arrayElemAt: ['$grades', 0] } // Corrected from '$grades.semesterSubmissions'
-  }
-},
-      { $sort: sortField ? { [sortField]: sortDirection === 'asc' ? 1 : -1 } : { studentId: 1 } }
-    );
+    // Projection
+    pipeline.push({
+      $project: {
+        studentId: 1,
+        name: 1,
+        branch: 1,
+        regulation: 1,
+        _class: 1,
+        facultyAdvisor: 1,
+        from_year: 1,
+        to_year: 1,
+        arrears: 1,
+        personalInformation: { $arrayElemAt: ['$details.personalInformation', 0] },
+        familyInformation: { $arrayElemAt: ['$details.familyInformation', 0] },
+        education: { $arrayElemAt: ['$details.education', 0] },
+        grades: { $arrayElemAt: ['$grades', 0] }
+      }
+    });
+
+    // Sorting
+    pipeline.push({
+      $sort: sortField ? { [sortField]: sortDirection === 'asc' ? 1 : -1 } : { studentId: 1 }
+    });
 
     const results = await StudentAcc.aggregate(pipeline).exec();
     res.json(results);
 
   } catch (error) {
-    console.error('Query error:', error);
     res.status(500).json({ 
       error: 'Internal server error',
       message: error.message,
@@ -2934,6 +3005,64 @@ app.get('/api/students/:registerNumber', async (req, res) => {
     res.status(500).json({ message: 'Server error' });
   }
 });
+
+app.get('/get-submitted-grades/:studentId/:semester', async (req, res) => {
+  try {
+    const { studentId, semester} = req.params;
+    
+    console.log("Semester: "+semester);
+    // Find the student's grades
+    const grades = await StudentGrades.findOne({ studentId:studentId, 'enrolledCourses.semester':new RegExp(`^${semester}\\b`, 'i')});
+    
+    if (!grades) {
+      return res.json();
+    }
+
+    // Convert Map to object if needed
+    const semesterSubmissions = grades.semesterSubmissions instanceof Map 
+      ? Object.fromEntries(grades.semesterSubmissions)
+      : grades.semesterSubmissions;
+
+    // Get semester data
+    const semesterData = semesterSubmissions[semester];
+    
+    if (!semesterData) {
+      return res.json();
+    }
+
+    // Filter enrolled courses for the specified semester with non-null grades
+    const coursesWithGrades = grades.enrolledCourses.filter(course => 
+      course.semester.startsWith(semester) && course.grade !== null
+    );
+
+    // Prepare response
+    const response = {
+      studentId: grades.studentId,
+      semester,
+      gpa: semesterData.gpa,
+      submissionDate: semesterData.submissionDate,
+      verified: semesterData.verified,
+      courses: coursesWithGrades.map(course => ({
+        courseCode: course.courseCode,
+        semester: course.semester,
+        courseName: course.courseName || '', // Add if available in your schema
+        grade: course.grade,
+        gradeSubmittedAt: course.gradeSubmittedAt,
+        isArrear: course.isReEnrolled || false,  // Mark as arrear if re-enrolled
+        originalSemester: course.isReEnrolled ? course.semester : undefined
+      })),
+      marksheetPath: semesterData.marksheetPath
+    };
+
+    res.json(response);
+    
+
+  } catch (error) {
+    console.error('Error fetching grade details:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 
 // Helper to convert nested field queries
 function convertNestedQuery(query) {

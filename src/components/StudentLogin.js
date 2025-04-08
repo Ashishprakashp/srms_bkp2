@@ -36,6 +36,7 @@ export default function StudentLogin() {
         { withCredentials: true }
       );
 
+      
       console.log('Login response:', response.data); // Debugging line
 
       if (response.data.message === 'Login successful') {

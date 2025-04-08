@@ -405,7 +405,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { Table, Pagination, Button, Spinner, Modal ,Card, Form} from 'react-bootstrap';
+import { Table, Pagination, Button, Spinner, Modal ,Card, Form,Row,Col} from 'react-bootstrap';
 import axios from 'axios';
 import TitleBar from './TitleBar.js';
 import SideBar from './SideBar.js';
@@ -752,159 +752,210 @@ const ClassDetails = () => {
           </Pagination>
 
           {/* Student Details Modal */}
-          <Modal show={showModal} onHide={() => setShowModal(false)} size="lg" centered>
-      <Modal.Header closeButton className="bg-primary text-white">
-        <Modal.Title>Student Details</Modal.Title>
-      </Modal.Header>
-      <Modal.Body className={`p-4 bg-light ${showReasonModal ? "blurred-modal" : ""}`}>
-        {selectedStudent && (
-          <>
-            {/* Personal Information */}
-            <Card className="mb-3 shadow-sm">
-              <Card.Body>
-                <h5 className="border-bottom pb-2">Personal Information</h5>
-                <p><strong>Name:</strong> {selectedStudent.personalInformation?.name}</p>
-                <p><strong>Register Number:</strong> {selectedStudent.personalInformation?.register}</p>
-                <p><strong>Date of Birth:</strong> {selectedStudent.personalInformation?.dob && new Date(selectedStudent.personalInformation.dob).toLocaleDateString()}</p>
-                <p><strong>Gender:</strong> {selectedStudent.personalInformation?.sex}</p>
-                <p><strong>Blood Group:</strong> {selectedStudent.personalInformation?.blood}</p>
-                <p><strong>Community:</strong> {selectedStudent.personalInformation?.community}</p>
-                <p><strong>Scholarship:</strong> {selectedStudent.personalInformation?.scholarship}</p>
-                <p><strong>Volunteer Work:</strong> {selectedStudent.personalInformation?.volunteer}</p>
-                <p><strong>Contact:</strong> {selectedStudent.personalInformation?.contact}</p>
-                <p><strong>Email:</strong> {selectedStudent.personalInformation?.mail}</p>
-                {selectedStudent.personalInformation?.passportPhoto && (
-                  <div className="text-center mt-3">
-                    <img
-                      src={`http://localhost:5000/file?path=${encodeURIComponent(selectedStudent.personalInformation.passportPhoto)}`}
-                      alt="Passport Photo"
-                      className="rounded-circle shadow"
-                      style={{ width: '120px', height: '120px', border: "3px solid #007bff" }}
-                    />
-                  </div>
+<Modal show={showModal} onHide={() => setShowModal(false)} size="lg" centered>
+  <Modal.Header closeButton className="bg-primary text-white">
+    <Modal.Title>Student Details</Modal.Title>
+  </Modal.Header>
+  <Modal.Body className={`p-4 bg-light ${showReasonModal ? "blurred-modal" : ""}`}>
+    {selectedStudent && (
+      <>
+        {/* Personal Information */}
+        <Card className="mb-3 shadow-sm">
+          <Card.Body>
+            <h5 className="border-bottom pb-2">Personal Information</h5>
+            <Row>
+              <Col md={6}>
+                <p><strong>Name:</strong> {selectedStudent.personalInformation?.name || 'N/A'}</p>
+                <p><strong>Register Number:</strong> {selectedStudent.personalInformation?.register || 'N/A'}</p>
+                <p><strong>Date of Birth:</strong> {selectedStudent.personalInformation?.dob ? new Date(selectedStudent.personalInformation.dob).toLocaleDateString() : 'N/A'}</p>
+                <p><strong>Gender:</strong> {selectedStudent.personalInformation?.sex || 'N/A'}</p>
+                <p><strong>Blood Group:</strong> {selectedStudent.personalInformation?.blood || 'N/A'}</p>
+              </Col>
+              <Col md={6}>
+                <p><strong>Community:</strong> {selectedStudent.personalInformation?.community || 'N/A'}</p>
+                <p><strong>Student Type:</strong> {selectedStudent.personalInformation?.student_type || 'N/A'}</p>
+                {selectedStudent.personalInformation?.student_type === 'Hosteller' && (
+                  <p><strong>Hostel:</strong> {selectedStudent.personalInformation?.hostel || 'N/A'}</p>
                 )}
-              </Card.Body>
-            </Card>
-
-            {/* Family Information */}
-            <Card className="mb-3 shadow-sm">
-              <Card.Body>
-                <h5 className="border-bottom pb-2">Family Information</h5>
-                <p><strong>Father's Name:</strong> {selectedStudent.familyInformation?.fatherName}</p>
-                <p><strong>Father's Occupation:</strong> {selectedStudent.familyInformation?.fatherOcc}</p>
-                <p><strong>Mother's Name:</strong> {selectedStudent.familyInformation?.motherName}</p>
-                <p><strong>Parent's Contact:</strong> {selectedStudent.familyInformation?.parentContact}</p>
-                <p><strong>Guardian's Contact:</strong> {selectedStudent.familyInformation?.guardianContact}</p>
-              </Card.Body>
-            </Card>
-
-            {/* Education Details */}
-            <Card className="mb-3 shadow-sm">
-              <Card.Body>
-                <h5 className="border-bottom pb-2">Education Details</h5>
-                <h6 className="text-muted">Class X</h6>
-                <p><strong>School:</strong> {selectedStudent.education?.xSchool}</p>
-                <p><strong>Board:</strong> {selectedStudent.education?.xBoard}</p>
-                <p><strong>Percentage:</strong> {selectedStudent.education?.xPercentage}</p>
-                <p><strong>Marksheet:</strong> {selectedStudent.education?.xMarksheet && renderFileLink('X Marksheet', selectedStudent.education.xMarksheet)}</p>
-
-                <h6 className="text-muted mt-3">Class XII</h6>
-                <p><strong>School:</strong> {selectedStudent.education?.xiiSchool}</p>
-                <p><strong>Board:</strong> {selectedStudent.education?.xiiBoard}</p>
-                <p><strong>Percentage:</strong> {selectedStudent.education?.xiiPercentage}</p>
-                <p><strong>Marksheet:</strong> {selectedStudent.education?.xiiMarksheet && renderFileLink('XII Marksheet', selectedStudent.education.xiiMarksheet)}</p>
-              </Card.Body>
-            </Card>
-
-            {/* Entrance Exam & Work Experience */}
-            {branch !== 'BTECH' && (
-              <Card className="mb-3 shadow-sm">
-              <Card.Body>
-                <h5 className="border-bottom pb-2">Entrance Exam & Work Experience</h5>
-                
-                <div><strong>Exam:</strong> {selectedStudent.entranceAndWorkExperience?.entrance}</div>
-                <div><strong>Registration Number:</strong> {selectedStudent.entranceAndWorkExperience?.entranceRegister}</div>
-                <div><strong>Score:</strong> {selectedStudent.entranceAndWorkExperience?.entranceScore}</div>
-                <div><strong>Year:</strong> {selectedStudent.entranceAndWorkExperience?.entranceYear}</div>
-            
-                {selectedStudent.entranceAndWorkExperience?.scorecard && (
-                  <div><strong>Scorecard:</strong> {renderFileLink('Scorecard', selectedStudent.entranceAndWorkExperience.scorecard)}</div>
-                )}
-            
-                {selectedStudent.entranceAndWorkExperience?.workExperience?.length > 0 && (
-                  <>
-                    <h6 className="text-muted mt-3">Work Experience</h6>
-                    {selectedStudent.entranceAndWorkExperience.workExperience.map((work, index) => (
-                      <div key={index} className="mb-3 border-bottom pb-2">
-                        <div><strong>Employer:</strong> {work.employerName}</div>
-                        <div><strong>Role:</strong> {work.role}</div>
-                        <div><strong>Experience:</strong> {work.expYears} years</div>
-                        {work.certificate && <div><strong>Certificate:</strong> {renderFileLink('Certificate', work.certificate)}</div>}
-                      </div>
-                    ))}
-                  </>
-                )}
-              </Card.Body>
-            </Card>
-            
-            
+                <p><strong>Mobile:</strong> {selectedStudent.personalInformation?.mobile || 'N/A'}</p>
+                <p><strong>Email:</strong> {selectedStudent.personalInformation?.mail || 'N/A'}</p>
+              </Col>
+            </Row>
+            <Row>
+              <Col md={6}>
+                <p><strong>Special Category:</strong> {selectedStudent.personalInformation?.splcategory || 'None'}</p>
+                <p><strong>Scholarship:</strong> {selectedStudent.personalInformation?.scholarship || 'None'}</p>
+              </Col>
+              <Col md={6}>
+                <p><strong>Volunteer Work:</strong> {selectedStudent.personalInformation?.volunteer || 'None'}</p>
+                <p><strong>Aadhar Number:</strong> {selectedStudent.personalInformation?.aadhar || 'N/A'}</p>
+              </Col>
+            </Row>
+            {selectedStudent.personalInformation?.passportPhoto && (
+              <div className="text-center mt-3">
+                <img
+                  src={`http://localhost:5000/file?path=${encodeURIComponent(selectedStudent.personalInformation.passportPhoto)}`}
+                  alt="Passport Photo"
+                  className="rounded-circle shadow"
+                  style={{ width: '120px', height: '120px', border: "3px solid #007bff" }}
+                />
+              </div>
             )}
+          </Card.Body>
+        </Card>
 
-            {/* Declaration */}
-            <Card className="mb-3 shadow-sm">
-              <Card.Body>
-                <h5 className="border-bottom pb-2">Declaration</h5>
-                <p><strong>Accepted:</strong> {selectedStudent.acceptance ? '✅ Yes' : '❌ No'}</p>
-              </Card.Body>
-            </Card>
-          </>
-        )}
-      </Modal.Body>
+        {/* Family Information */}
+        <Card className="mb-3 shadow-sm">
+          <Card.Body>
+            <h5 className="border-bottom pb-2">Family Information</h5>
+            <Row>
+              <Col md={6}>
+                <p><strong>Father's Name:</strong> {selectedStudent.familyInformation?.fatherName || 'N/A'}</p>
+                <p><strong>Father's Occupation:</strong> {selectedStudent.familyInformation?.fatherOcc || 'N/A'}</p>
+                <p><strong>Father's Income:</strong> {selectedStudent.familyInformation?.fatherInc || 'N/A'}</p>
+              </Col>
+              <Col md={6}>
+                <p><strong>Mother's Name:</strong> {selectedStudent.familyInformation?.motherName || 'N/A'}</p>
+                <p><strong>Mother's Occupation:</strong> {selectedStudent.familyInformation?.motherOcc || 'N/A'}</p>
+                <p><strong>Mother's Income:</strong> {selectedStudent.familyInformation?.motherInc || 'N/A'}</p>
+              </Col>
+            </Row>
+            <Row>
+              <Col md={6}>
+                <p><strong>Parent's Address:</strong> {selectedStudent.familyInformation?.parentAddr || 'N/A'}</p>
+                <p><strong>Parent's Contact:</strong> {selectedStudent.familyInformation?.parentContact || 'N/A'}</p>
+                <p><strong>Parent's Email:</strong> {selectedStudent.familyInformation?.parentMail || 'N/A'}</p>
+              </Col>
+              <Col md={6}>
+                <p><strong>Guardian's Address:</strong> {selectedStudent.familyInformation?.guardianAddr || 'N/A'}</p>
+                <p><strong>Guardian's Contact:</strong> {selectedStudent.familyInformation?.guardianContact || 'N/A'}</p>
+                <p><strong>Guardian's Email:</strong> {selectedStudent.familyInformation?.guardianMail || 'N/A'}</p>
+              </Col>
+            </Row>
+          </Card.Body>
+        </Card>
 
-      {/* Footer with Stylish Buttons */}
-      <Modal.Footer className="d-flex justify-content-between">
-        <Button variant="secondary" className="me-2" onClick={() => setShowModal(false)}>
-          Close
-        </Button>
-        <div>
-          <Button className="btn btn-danger me-2" onClick={handleReject}>
-            Reject
-          </Button>
-          <Button variant="success" onClick={handleApprove}>
-            Approve
-          </Button>
-        </div>
-      </Modal.Footer>
+        {/* Education Details */}
+        <Card className="mb-3 shadow-sm">
+          <Card.Body>
+            <h5 className="border-bottom pb-2">Education Details</h5>
+            <Row>
+              <Col md={6}>
+                <h6 className="text-muted">Class X</h6>
+                <p><strong>School:</strong> {selectedStudent.education?.xSchool || 'N/A'}</p>
+                <p><strong>Board:</strong> {selectedStudent.education?.xBoard || 'N/A'}</p>
+                <p><strong>Year:</strong> {selectedStudent.education?.xYear || 'N/A'}</p>
+                <p><strong>Percentage:</strong> {selectedStudent.education?.xPercentage || 'N/A'}</p>
+                {selectedStudent.education?.xMarksheet && renderFileLink('X Marksheet', selectedStudent.education.xMarksheet)}
+              </Col>
+              <Col md={6}>
+                <h6 className="text-muted">Class XII</h6>
+                <p><strong>School:</strong> {selectedStudent.education?.xiiSchool || 'N/A'}</p>
+                <p><strong>Board:</strong> {selectedStudent.education?.xiiBoard || 'N/A'}</p>
+                <p><strong>Year:</strong> {selectedStudent.education?.xiiYear || 'N/A'}</p>
+                <p><strong>Percentage:</strong> {selectedStudent.education?.xiiPercentage || 'N/A'}</p>
+                {selectedStudent.education?.xiiMarksheet && renderFileLink('XII Marksheet', selectedStudent.education.xiiMarksheet)}
+              </Col>
+            </Row>
+            <Row className="mt-3">
+              <Col md={6}>
+                <h6 className="text-muted">Undergraduate</h6>
+                <p><strong>Degree:</strong> {selectedStudent.education?.ug || 'N/A'}</p>
+                <p><strong>College:</strong> {selectedStudent.education?.ugCollege || 'N/A'}</p>
+                <p><strong>Year:</strong> {selectedStudent.education?.ugYear || 'N/A'}</p>
+                <p><strong>Percentage:</strong> {selectedStudent.education?.ugPercentage || 'N/A'}</p>
+                {selectedStudent.education?.ugProvisionalCertificate && renderFileLink('UG Certificate', selectedStudent.education.ugProvisionalCertificate)}
+              </Col>
+            </Row>
+          </Card.Body>
+        </Card>
 
-      {/* Reason Prompt Modal */}
-      <Modal show={showReasonModal} onHide={() => setShowReasonModal(false)} centered>
-        <Modal.Header closeButton style={{ backgroundColor: '#f8f9fa' }}>
-          <Modal.Title>Enter Rejection Reason</Modal.Title>
-        </Modal.Header>
-        <Modal.Body style={{ backgroundColor: '#f8f9fa' }}>
-          <Form>
-            <Form.Group>
-              <Form.Label>Reason:</Form.Label>
-              <Form.Control
-                as="textarea"
-                rows={3}
-                placeholder="Enter reason for rejection..."
-                value={reason}
-                onChange={(e) => setReason(e.target.value)}
-              />
-            </Form.Group>
-          </Form>
-        </Modal.Body>
-        <Modal.Footer style={{ backgroundColor: '#f8f9fa' }}>
-          <Button variant="secondary" onClick={() => setShowReasonModal(false)}>
-            Cancel
-          </Button>
-          <Button variant="danger" onClick={()=>handleConfirmReject(selectedStudent.personalInformation.register)}>
-            Confirm Reject
-          </Button>
-        </Modal.Footer>
-      </Modal>
-    </Modal>
+        {/* Entrance Exam & Work Experience */}
+        <Card className="mb-3 shadow-sm">
+          <Card.Body>
+            <h5 className="border-bottom pb-2">Entrance Exam & Work Experience</h5>
+            <Row>
+              <Col md={6}>
+                <p><strong>Exam:</strong> {selectedStudent.entranceAndWorkExperience?.entrance || 'N/A'}</p>
+                <p><strong>Registration Number:</strong> {selectedStudent.entranceAndWorkExperience?.entranceRegister || 'N/A'}</p>
+                <p><strong>Score:</strong> {selectedStudent.entranceAndWorkExperience?.entranceScore || 'N/A'}</p>
+                <p><strong>Year:</strong> {selectedStudent.entranceAndWorkExperience?.entranceYear || 'N/A'}</p>
+                {selectedStudent.entranceAndWorkExperience?.scorecard && renderFileLink('Scorecard', selectedStudent.entranceAndWorkExperience.scorecard)}
+              </Col>
+            </Row>
+            {selectedStudent.entranceAndWorkExperience?.workExperience?.length > 0 && (
+              <div className="mt-3">
+                <h6 className="text-muted">Work Experience</h6>
+                {selectedStudent.entranceAndWorkExperience.workExperience.map((work, index) => (
+                  <div key={index} className="mb-3 border-bottom pb-2">
+                    <p><strong>Employer:</strong> {work.employerName || 'N/A'}</p>
+                    <p><strong>Role:</strong> {work.role || 'N/A'}</p>
+                    <p><strong>Duration:</strong> {work.expYears ? `${work.expYears} years` : 'N/A'}</p>
+                    {work.certificate && renderFileLink('Certificate', work.certificate)}
+                  </div>
+                ))}
+              </div>
+            )}
+          </Card.Body>
+        </Card>
+
+        {/* Declaration */}
+        <Card className="mb-3 shadow-sm">
+          <Card.Body>
+            <h5 className="border-bottom pb-2">Declaration</h5>
+            <p><strong>Accepted:</strong> {selectedStudent.acceptance ? '✅ Yes' : '❌ No'}</p>
+            <p><strong>Created At:</strong> {selectedStudent.createdAt ? new Date(selectedStudent.createdAt).toLocaleString() : 'N/A'}</p>
+            <p><strong>Last Updated:</strong> {selectedStudent.updatedAt ? new Date(selectedStudent.updatedAt).toLocaleString() : 'N/A'}</p>
+          </Card.Body>
+        </Card>
+      </>
+    )}
+  </Modal.Body>
+
+  {/* Footer with Stylish Buttons */}
+  <Modal.Footer className="d-flex justify-content-between">
+    <Button variant="secondary" className="me-2" onClick={() => setShowModal(false)}>
+      Close
+    </Button>
+    <div>
+      <Button className="btn btn-danger me-2" onClick={handleReject}>
+        Reject
+      </Button>
+      <Button variant="success" onClick={handleApprove}>
+        Approve
+      </Button>
+    </div>
+  </Modal.Footer>
+
+  {/* Reason Prompt Modal */}
+  <Modal show={showReasonModal} onHide={() => setShowReasonModal(false)} centered>
+    <Modal.Header closeButton style={{ backgroundColor: '#f8f9fa' }}>
+      <Modal.Title>Enter Rejection Reason</Modal.Title>
+    </Modal.Header>
+    <Modal.Body style={{ backgroundColor: '#f8f9fa' }}>
+      <Form>
+        <Form.Group>
+          <Form.Label>Reason:</Form.Label>
+          <Form.Control
+            as="textarea"
+            rows={3}
+            placeholder="Enter reason for rejection..."
+            value={reason}
+            onChange={(e) => setReason(e.target.value)}
+          />
+        </Form.Group>
+      </Form>
+    </Modal.Body>
+    <Modal.Footer style={{ backgroundColor: '#f8f9fa' }}>
+      <Button variant="secondary" onClick={() => setShowReasonModal(false)}>
+        Cancel
+      </Button>
+      <Button variant="danger" onClick={() => handleConfirmReject(selectedStudent.personalInformation.register)}>
+        Confirm Reject
+      </Button>
+    </Modal.Footer>
+  </Modal>
+</Modal>
         </div>
       </div>
     </>

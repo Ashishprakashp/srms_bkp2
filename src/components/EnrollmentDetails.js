@@ -124,6 +124,7 @@ const EnrollmentDetails = () => {
     const fetchStudents = async () => {
       try {
         const response = await axios.get("http://localhost:5000/student-class/all");
+        console.log(response.data);
         const filteredStudents = response.data.filter(
           (student) =>
             student.branch === branch &&
@@ -368,10 +369,12 @@ const EnrollmentDetails = () => {
 
   // Filter students by semester
   const enrolledStudents = students.filter(
-    (student) => student.enrolled === selectedSemester
+    
+    (student) =>(student.enrolled?.toString()||"").startsWith(selectedSemester)
+    
   );
   const pendingStudents = students.filter(
-    (student) => student.enrolled !== selectedSemester
+    (student) => !(student.enrolled?.toString()||"").startsWith(selectedSemester)
   );
 
   // Pagination functions
@@ -466,8 +469,8 @@ const EnrollmentDetails = () => {
                             <th>Regulation</th>
                             <th>Batch</th>
                             <th>Class</th>
-                            <th>isEnabled?</th>
-                            <th>isEnrolled?</th>
+                            {/* <th>isEnabled?</th>
+                            <th>isEnrolled?</th> */}
                             <th>Action</th>
                           </tr>
                         </thead>
@@ -480,8 +483,8 @@ const EnrollmentDetails = () => {
                               <td>{student.regulation}</td>
                               <td>{student.from_year} - {student.to_year}</td>
                               <td>{student._class}</td>
-                              <td>{student.can_enroll!=='0' ? "Yes" : "No"}</td>
-                              <td>{student.enrolled!=='0' ? "Yes" : "No"}</td>
+                              {/* <td>{student.can_enroll!=='0' ? "Yes" : "No"}</td>
+                              <td>{student.enrolled!=='0' ? "Yes" : "No"}</td> */}
                               <td>
                                 <Button variant="primary" onClick={() => enableStudent(false, student.studentId)}>
                                   Revoke
@@ -526,8 +529,8 @@ const EnrollmentDetails = () => {
                             <th>Regulation</th>
                             <th>Batch</th>
                             <th>Class</th>
-                            <th>isEnabled?</th>
-                            <th>isEnrolled?</th>
+                            {/* <th>isEnabled?</th>
+                            <th>isEnrolled?</th> */}
                             <th>Action</th>
                           </tr>
                         </thead>
@@ -540,8 +543,8 @@ const EnrollmentDetails = () => {
                               <td>{student.regulation}</td>
                               <td>{student.from_year} - {student.to_year}</td>
                               <td>{student._class}</td>
-                              <td>{student.can_enroll!=='0' ? "Yes" : "No"}</td>
-                              <td>{student.enrolled!=='0' ? "Yes" : "No"}</td>
+                              {/* <td>{student.can_enroll!=='0' ? "Yes" : "No"}</td>
+                              <td>{student.enrolled!=='0' ? "Yes" : "No"}</td> */}
                               <td>
                                 {student.can_enroll ? (
                                   <button className="btn btn-danger" onClick={() => enableStudent(false, student.studentId)}>

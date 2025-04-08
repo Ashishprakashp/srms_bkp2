@@ -32,6 +32,7 @@ const [approvedStudents, setApprovedStudents] = useState([]);
 const [approvedLoading, setApprovedLoading] = useState(true);
 const [month_,setMonth]=useState('');
 const [year_,setYear]=useState('');
+const [path,setPath]=useState(null);
 
   // Fetch semester numbers from the database
   useEffect(() => {
@@ -216,6 +217,7 @@ const [year_,setYear]=useState('');
       
       // Generate marksheet URL if available
       if (gradeData.marksheetPath) {
+        setPath(gradeData.marksheetPath);
         try {
           const marksheetResponse = await axios.get(
             `http://localhost:5000/marksheet/${studentId}/${selectedSemester}`,
@@ -257,6 +259,10 @@ const [year_,setYear]=useState('');
             : student
         )
       );
+      // if(path){
+      //   const filePaths = [path];
+      //   await axios.post('http://localhost:5000/move-files', { filePaths });
+      // }
       
       setShowGradeModal(false);
       alert('Grades approved successfully');
@@ -443,7 +449,6 @@ const [year_,setYear]=useState('');
         prevStudents.map((student) => ({
           ...student,
           can_fill_grades: '0',
-          grades_filled: '0',
         }))
       );
     } catch (error) {

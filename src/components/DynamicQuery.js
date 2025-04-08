@@ -156,7 +156,20 @@ type: 'number',
 operators: ['equals', 'greaterThan', 'lessThan'],
 inputType: 'number',
 step: '0.01'
-}
+},
+{
+  label: 'Batch',
+  path: 'batch', // This will be a computed field
+  type: 'string',
+  operators: ['equals', 'contains']
+},
+{
+  label: 'Arrears',
+  path: 'arrears',
+  type: 'arrears', // Custom type
+  operators: ['equals', 'greaterThan', 'lessThan', 'hasSubject'],
+  inputType: 'number' // For numeric comparisons
+},
 ];
 
 const [filters, setFilters] = useState([]);
@@ -206,21 +219,58 @@ const buildQuery = () => {
     const attribute = availableAttributes.find(a => a.path === filter.attributePath);
     if (!attribute || !filter.value) return null;
 
+    // Handle arrears specially
+    if (filter.attributePath === 'arrears') {
+      if (filter.operator === 'hasSubject') {
+        // Filter by subject code
+        return {
+          'arrears.subject_code': filter.value,
+          'arrears.status': 'active'
+        };
+      } else {
+        // Count active arrears
+        const numericValue = parseInt(filter.value);
+        if (isNaN(numericValue)) return null;
+        
+        const comparison = filter.operator === 'equals' ? '$eq' : 
+                          filter.operator === 'greaterThan' ? '$gt' : '$lt';
+        
+        return {
+          $expr: {
+            [comparison]: [
+              {
+                $size: {
+                  $filter: {
+                    input: '$arrears',
+                    as: 'arr',
+                    cond: { $eq: ['$$arr.status', 'active'] }
+                  }
+                }
+              },
+              numericValue
+            ]
+          }
+        };
+      }
+    }
+
     // Map frontend paths to backend query paths
     // Update the buildQuery function's path mapping
-let backendPath = filter.attributePath;
-if (filter.attributePath.startsWith('personalInformation.')) {
-  backendPath = `details.personalInformation.${filter.attributePath.split('.')[1]}`;
-} else if (filter.attributePath.startsWith('familyInformation.')) {
-  backendPath = `details.familyInformation.${filter.attributePath.split('.')[1]}`;
-} else if (filter.attributePath.startsWith('education.')) {
-  backendPath = `details.education.${filter.attributePath.split('.')[1]}`;
-} else if (filter.attributePath.startsWith('grades.')) {
-  const parts = filter.attributePath.split('.');
-  backendPath = `grades.semesterSubmissions.${parts[2]}.${parts[3]}`;
-} else if (filter.attributePath.startsWith('account.')) { // Add this block
-  backendPath = filter.attributePath.replace('account.', '');
-}
+    let backendPath = filter.attributePath;
+    if (filter.attributePath.startsWith('personalInformation.')) {
+      backendPath = `details.personalInformation.${filter.attributePath.split('.')[1]}`;
+    } else if (filter.attributePath.startsWith('familyInformation.')) {
+      backendPath = `details.familyInformation.${filter.attributePath.split('.')[1]}`;
+    } else if (filter.attributePath.startsWith('education.')) {
+      backendPath = `details.education.${filter.attributePath.split('.')[1]}`;
+    } else if (filter.attributePath.startsWith('grades.')) {
+      const parts = filter.attributePath.split('.');
+      backendPath = `grades.semesterSubmissions.${parts[2]}.${parts[3]}`;
+    } else if (filter.attributePath.startsWith('account.')) {
+      // Remove the 'account.' prefix for direct field access in StudentAcc
+      backendPath = filter.attributePath.replace('account.', '');
+    }
+    
 
     // Rest of the condition building...
     const { type } = attribute;
@@ -263,6 +313,18 @@ setSortConfig({ key, direction });
 // Verify the getNestedValue function handles grades correctly
 const getNestedValue = (obj, path) => {
   try {
+    if (path === 'batch') {
+      return obj.from_year && obj.to_year 
+        ? `${obj.from_year}-${obj.to_year}` 
+        : '-';
+    }
+
+    if (path === 'arrears') {
+      if (!obj.arrears || !Array.isArray(obj.arrears)) return 0;
+      return obj.arrears.filter(arr => arr.status === 'active').length;
+    }
+
+
     if (obj[path] !== undefined) return obj[path] || '-';
     
     if (path.startsWith('account.')) {
@@ -329,8 +391,9 @@ const fetchStudents = async () => {
 setLoading(true);
 try {
 const query = buildQuery();
+console.log(query);
 const response = await axios.post('http://localhost:5000/query-students', { 
-query,
+query:query,
 sortField: sortConfig.key,
 sortDirection: sortConfig.direction
 });
@@ -340,7 +403,13 @@ _id: student._id,
 studentId: student.studentId || '-',
 name: student.name || '-',
 branch: student.branch || '-',
+from_year: student.from_year || '-',  // Add this line
+  to_year: student.to_year || '-', 
 regulation: student.regulation || '-',
+batch: student.from_year && student.to_year 
+        ? `${student.from_year}-${student.to_year}` 
+        : '-',
+        arrears: student.arrears || [], 
 // Account info
 account: {
 _class: student._class || '-',
@@ -387,9 +456,11 @@ const downloadExcel = () => {
       'Register No',
       'Name',
       'Branch',
-      ...queriedAttributes.map(path => 
-        availableAttributes.find(a => a.path === path)?.label || path
-      )
+      'Batch', 
+      ...queriedAttributes.map(path => {
+        if (path === 'arrears') return 'Active Arrears Count';
+        return availableAttributes.find(a => a.path === path)?.label || path;
+      })
     ]
   ];
 
@@ -399,11 +470,16 @@ const downloadExcel = () => {
       student.studentId,
       student.name,
       student.branch,
-      ...queriedAttributes.map(path => {
-        const value = getNestedValue(student, path);
-        // Convert numbers to proper Excel numeric type
-        return typeof value === 'number' ? Number(value.toFixed(2)) : value;
-      })
+      student.from_year && student.to_year 
+        ? `${student.from_year}-${student.to_year}`
+        : '-',
+        ...queriedAttributes.map(path => {
+          if (path === 'arrears') {
+            return student.arrears?.filter(arr => arr.status === 'active').length || 0;
+          }
+          const value = getNestedValue(student, path);
+          return typeof value === 'number' ? Number(value.toFixed(2)) : value;
+        })
     ]);
   });
 
@@ -496,59 +572,51 @@ No filters added. Click "Add Filter" to start querying.
 ) : (
 <>
 {filters.map((filter) => {
-const attribute = availableAttributes.find(a => a.path === filter.attributePath);
-return (
-<Row key={filter.id} className="mb-3 align-items-center">
-<Col md={4}>
-<Form.Select
-value={filter.attributePath}
-onChange={(e) => updateFilter(filter.id, 'attributePath', e.target.value)}
->
-{availableAttributes.map((attr) => (
-<option key={attr.path} value={attr.path}>{attr.label}</option>
-))}
-</Form.Select>
-</Col>
-<Col md={2}>
-<Form.Select
-value={filter.operator}
-onChange={(e) => updateFilter(filter.id, 'operator', e.target.value)}
->
-{attribute?.operators.map((op) => (
-<option key={op} value={op}>
-{op.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase())}
-</option>
-))}
-</Form.Select>
-</Col>
-<Col md={4}>
-{attribute?.type === 'enum' ? (
-<Form.Select
-value={filter.value}
-onChange={(e) => updateFilter(filter.id, 'value', e.target.value)}
->
-<option value="">Select Value</option>
-{attribute.enumOptions.map((val) => (
-<option key={val} value={val}>{val}</option>
-))}
-</Form.Select>
-) : (
-<Form.Control
-type={attribute?.inputType || 'text'}
-value={filter.value}
-onChange={(e) => updateFilter(filter.id, 'value', e.target.value)}
-placeholder={`Enter ${attribute?.label.toLowerCase()}`}
-step={attribute?.step || undefined}
-/>
-)}
-</Col>
-<Col md={2}>
-<Button variant="danger" onClick={() => removeFilter(filter.id)}>
-Remove
-</Button>
-</Col>
-</Row>
-);
+  const attribute = availableAttributes.find(a => a.path === filter.attributePath);
+  return (
+    <Row key={filter.id} className="mb-3 align-items-center">
+      <Col md={4}>
+        <Form.Select value={filter.attributePath} onChange={(e) => updateFilter(filter.id, 'attributePath', e.target.value)}>
+          {availableAttributes.map((attr) => (
+            <option key={attr.path} value={attr.path}>{attr.label}</option>
+          ))}
+        </Form.Select>
+      </Col>
+      <Col md={2}>
+        <Form.Select value={filter.operator} onChange={(e) => updateFilter(filter.id, 'operator', e.target.value)}>
+          {attribute?.operators.map((op) => (
+            <option key={op} value={op}>
+              {op === 'hasSubject' ? 'Has Subject' : 
+               op.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase())}
+            </option>
+          ))}
+        </Form.Select>
+      </Col>
+      <Col md={4}>
+        {filter.operator === 'hasSubject' ? (
+          <Form.Control
+            type="text"
+            value={filter.value}
+            onChange={(e) => updateFilter(filter.id, 'value', e.target.value)}
+            placeholder="Enter subject code"
+          />
+        ) : (
+          <Form.Control
+            type={attribute?.inputType || 'text'}
+            value={filter.value}
+            onChange={(e) => updateFilter(filter.id, 'value', e.target.value)}
+            placeholder={filter.operator === 'hasSubject' ? 'Enter subject code' : `Enter ${attribute?.label.toLowerCase()}`}
+            step={attribute?.step || undefined}
+          />
+        )}
+      </Col>
+      <Col md={2}>
+        <Button variant="danger" onClick={() => removeFilter(filter.id)}>
+          Remove
+        </Button>
+      </Col>
+    </Row>
+  );
 })}
 <div className="d-flex justify-content-end mt-3">
 <Button variant="success" onClick={fetchStudents} disabled={loading}>
@@ -590,6 +658,7 @@ Name{getSortIndicator('name')}
 <th onClick={() => requestSort('branch')} style={{ cursor: 'pointer' }}>
 Branch{getSortIndicator('branch')}
 </th>
+
 {queriedAttributes.map(path => {
 const attr = availableAttributes.find(a => a.path === path);
 return (
@@ -607,7 +676,12 @@ return (
       <td>{student.name}</td>
       <td>{student.branch}</td>
       {queriedAttributes.map(path => {
-        const value = getNestedValue(student, path);
+        let value;
+        if (path === 'arrears') {
+          value = student.arrears?.filter(arr => arr.status === 'active').length || 0;
+        } else {
+          value = getNestedValue(student, path);
+        }
         return <td key={path}>{value === '-' ? '' : value}</td>;
       })}
     </tr>

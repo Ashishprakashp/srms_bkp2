@@ -56,7 +56,7 @@ const SemesterEnrollment = () => {
           // Filter out arrears that are already in current semester (shouldn't happen but just in case)
           const currentSemesterCodes = new Set(currentSemesterSubjects.map(s => s.subject_code));
           const uniqueArrears = arrearsResponse.data.filter(
-            arrear => !currentSemesterCodes.has(arrear.subject_code)
+            arrear => !currentSemesterCodes.has(arrear.subject_code) && arrear.status==='active'
           );
           setArrears(uniqueArrears);
           // Combine both arrays
@@ -76,15 +76,43 @@ const SemesterEnrollment = () => {
     fetchStudentDetails();
   }, [branch]);
 
-  if (loading) {
-    return (
-      <div className="d-flex justify-content-center align-items-center vh-100">
-        <Spinner animation="border" role="status">
-          <span className="visually-hidden">Loading...</span>
-        </Spinner>
-      </div>
-    );
+  // Function to determine row style based on subject type
+  // In the SemesterEnrollment component, modify the getRowStyle function:
+const getRowStyle = (subject) => {
+  // Check if subject exists in arrears array
+  const isArrear = arrears.some(a => a.subject_code === subject.subject_code);
+  
+  // Base style with important flags
+  const baseStyle = {
+    '--bs-table-bg': getBackgroundColor(subject.subject_type),
+    backgroundColor: `${getBackgroundColor(subject.subject_type)} !important`,
+    background: `${getBackgroundColor(subject.subject_type)} !important`,
+  };
+
+  if (isArrear) {
+    return {
+      '--bs-table-bg': '#ffcccc',
+      backgroundColor: '#ffcccc !important',
+      background: '#ffcccc !important',
+    };
   }
+
+  return baseStyle;
+};
+
+// Add color mapping function
+const getBackgroundColor = (type) => {
+  switch(type) {
+    case 'FC': return '#e3f2fd'; // Light blue
+    case 'RMC': return '#fff3e0'; // Light purple
+    case 'PCC': return '#e8f5e9'; // Light green
+    case 'PEC': return '#f3e5f5'; // Light orange
+    case 'EEC': return '#fce4ec'; // Light pink
+    default: return 'transparent';
+  }
+};
+
+ 
 
   const enrollForSemester = async () => {
     try {
@@ -114,9 +142,9 @@ const SemesterEnrollment = () => {
         <StudentSideBar />
         {formEnabled ? (
           <Container fluid className="p-4" style={{ overflowY: 'auto', height: 'calc(100vh - 56px)' }}>
-            <h3>{semesterNumber ? `${branch} Semester ${semesterNumber} Enrollment` : ''}</h3>
-            <Table striped bordered hover className="rounded-3 mt-5">
-              <thead className="table-primary">
+            <h3 className='fw-bold'>{semesterNumber ? `${branch} Semester ${semesterNumber} Enrollment` : ''}</h3>
+            <Table  bordered hover className="rounded-3 mt-5">
+              <thead className="table-primary fs-5">
                 <tr>
                   <th>Subject Code</th>
                   <th>Subject Name</th>
@@ -126,11 +154,13 @@ const SemesterEnrollment = () => {
               </thead>
               <tbody>
                 {semesterData.map((subject, index) => (
-                  <tr key={index}>
+                  <tr key={index} style={getRowStyle(subject)} className='fs-5'>
                     <td>{subject.subject_code}</td>
                     <td>{subject.subject_name}</td>
                     <td>{subject.credits}</td>
-                    <td>{subject.subject_type}</td>
+                    <td>
+                      {subject.is_arrear ? 'ARREAR' : subject.subject_type}
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -142,8 +172,8 @@ const SemesterEnrollment = () => {
         ) : (
           <Container fluid className="p-4 d-flex align-items-center justify-content-center" style={{ height: 'calc(100vh - 56px)' }}>
             <div className="text-center">
-              <h2 className="mb-4">This process is closed now!</h2>
-              <Button variant="primary" onClick={() => navigate('/student-dashboard')}>
+              <h2 className="mb-4 fw-bold">This process is closed now!</h2>
+              <Button variant="primary" className='fs-5 fw-bold' onClick={() => navigate('/student-dashboard')}>
                 Return to Dashboard
               </Button>
             </div>
@@ -154,13 +184,13 @@ const SemesterEnrollment = () => {
       {/* Success Modal */}
       <Modal show={showModal} onHide={() => { setShowModal(false); window.location.reload(); }} centered>
         <Modal.Header closeButton>
-          <Modal.Title>Enrollment Successful</Modal.Title>
+          <Modal.Title className='fw-bold'>Enrollment Successful</Modal.Title>
         </Modal.Header>
-        <Modal.Body>
+        <Modal.Body className='fs-5'>
           <p>You have successfully enrolled in Semester {semesterNumber}!</p>
         </Modal.Body>
         <Modal.Footer>
-          <Button variant="primary" onClick={() => window.location.reload()}>
+          <Button variant="primary" className='fs-5' onClick={() => window.location.reload()}>
             OK
           </Button>
         </Modal.Footer>

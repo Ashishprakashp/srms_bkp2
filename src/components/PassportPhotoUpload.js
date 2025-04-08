@@ -7,7 +7,8 @@ const PassportPhotoUpload = ({ onImageUpload, uploadedImage, path }) => {
   const [error, setError] = useState("");
 
   useEffect(() => {
-    setPreview(uploadedImage || (path ? `http://localhost:5000/${path}` : ""));
+    console.log("Path: "+path);
+    setPreview((path ? `http://localhost:5000/${path}` : "")||uploadedImage );
   }, [uploadedImage, path]);
 
   const onDrop = (acceptedFiles) => {

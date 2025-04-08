@@ -52,8 +52,8 @@
         ...formData,
         personalInformation: {
           ...formData.personalInformation,
-          aadhar:url,
-          //aadharFile: file 
+          aadharFileUrl:url,
+          aadharFile: file 
           
         }
       });
@@ -192,26 +192,26 @@
                 </Form.Group>
               </Col>
               <Col md={4}>
-<Form.Group>
+              <Form.Group>
   {/* Aadhar Number Field */}
   <Form.Label style={{ color: 'black' }}>Aadhar Number</Form.Label>
   <Form.Control
     size="sm"
     type="number"
     value={formData.personalInformation.aadhar || ''}
-    
     onChange={(e) => {
       const value = e.target.value;
+      // Restrict input to 12 digits
       if (value.length <= 12) {
         handleChange('personalInformation', 'aadhar', value);
       }
-      
     }}
-    isInvalid={formData.personalInformation.aadhar && formData.personalInformation.aadhar.length !== 12}/>
-  {/* Display error message if the number is not 10 digits */}
+    isInvalid={formData.personalInformation.aadhar && formData.personalInformation.aadhar.length !== 12}
+  />
+  {/* Display error message if the number is not 12 digits */}
   {formData.personalInformation.aadhar && formData.personalInformation.aadhar.length !== 12 && (
     <Form.Control.Feedback type="invalid">
-      Please enter a 12-digit aadhar number.
+      Please enter a 12-digit Aadhar number.
     </Form.Control.Feedback>
   )}
 </Form.Group>
@@ -253,9 +253,8 @@
                   />
                 </Form.Group>
               </Col>
-      <Col md={1}>
+      {/* <Col md={1}>
       <Form.Group>
-  {/* Country Code Field */}
   <Form.Label style={{ color: 'black' }}>Code</Form.Label>
   <Form.Control
     size="sm"
@@ -275,7 +274,7 @@
     }
     placeholder="+91"
   />
-  {/* Display error message if the format is incorrect */}
+  
   {formData.personalInformation.countryCode &&
     !/^\+\d{2}$/.test(formData.personalInformation.countryCode) && (
       <Form.Control.Feedback type="invalid">
@@ -283,7 +282,7 @@
       </Form.Control.Feedback>
     )}
 </Form.Group>
-</Col>
+</Col> */}
 <Col md={4}>
 <Form.Group>
   {/* Mobile Number Field */}

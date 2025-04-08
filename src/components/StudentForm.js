@@ -23,9 +23,9 @@ const StudentForm = () => {
     personalInformation: {
       name: '',
       register: '',
-      aadhar_no:'',
       aadhar:'',
       aadharFile:null,
+      aadharFileUrl: "",
       student_type:'',
       hostel:'',
       dob: null,
@@ -149,7 +149,7 @@ const StudentForm = () => {
 
     fetchStudentDetails();
   }, [setFormData]);
-
+  console.log(formData);
   // Validation functions for each page
   const validatePage1 = (formData) => {
     const { personalInformation } = formData;
@@ -366,7 +366,7 @@ const StudentForm = () => {
     switch (currentPage) {
       case 1:
         appendFile('passportPhoto', formData.personalInformation.passportPhotoFile);
-        //appendFile('aadharFile', formData.personalInformation.aadharFile);
+        appendFile('aadharFile', formData.personalInformation.aadharFile);
         break;
       case 3:
         appendFile('xMarksheet', formData.education.xMarksheetFile);
@@ -387,6 +387,7 @@ const StudentForm = () => {
     formDataToSend.append('data', JSON.stringify(pageData));
   
     try {
+      console.log(formDataToSend);
       const response = await axios.post('http://localhost:5000/save-page-data', formDataToSend, {
         headers: {
           'Content-Type': 'multipart/form-data',
@@ -488,7 +489,8 @@ const StudentForm = () => {
     // Page 1 validation
     const { personalInformation } = formData;
     const page1Fields = [
-      personalInformation.aadhar,
+      personalInformation.aadhar.length==12,
+      personalInformation.aadharFile,
       personalInformation.register,
       personalInformation.branch,
       personalInformation.regulation,
@@ -498,9 +500,9 @@ const StudentForm = () => {
       personalInformation.blood !== '--',
       personalInformation.community !== '--',
       personalInformation.mail,
-      personalInformation.mobile,
+      personalInformation.mobile.length ==10,
       personalInformation.passportPhoto,
-      personalInformation.countryCode
+      // personalInformation.countryCode
     ];
     completedFields += page1Fields.filter(Boolean).length;
     totalFields += page1Fields.length;
@@ -565,15 +567,7 @@ const StudentForm = () => {
     return Math.round((completedFields / totalFields) * 100);
   };
 
-  if (loading) {
-    return (
-      <div className="d-flex justify-content-center align-items-center vh-100">
-        <Spinner animation="border" role="status">
-          <span className="visually-hidden">Loading...</span>
-        </Spinner>
-      </div>
-    );
-  }
+  
 
   return (
     <div>
@@ -706,8 +700,8 @@ const StudentForm = () => {
           <Container fluid className="p-4 d-flex align-items-center justify-content-center"
             style={{ height: 'calc(100vh - 56px)' }}>
             <div className="text-center">
-              <h2 className="mb-4">This process is closed now!</h2>
-              <Button variant="primary" onClick={() => navigate('/student-dashboard')}>
+              <h2 className="mb-4 fw-bold">This process is closed now!</h2>
+              <Button variant="primary" className='fw-bold fs-5' onClick={() => navigate('/student-dashboard')}>
                 Return to Dashboard
               </Button>
             </div>

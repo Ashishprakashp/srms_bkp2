@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Card, Row, Col, Button, Spinner, Modal, Form } from 'react-bootstrap';
+import { Card, Row, Col, Button, Spinner, Modal, Form,Badge } from 'react-bootstrap';
 import TitleBar from './TitleBar.js';
 import './AdminDashboard.css';
 import { useNavigate } from 'react-router-dom';
@@ -17,7 +17,7 @@ const StudentDashboard = ({ services }) => {
   const [errorMessage, setErrorMessage] = useState('');
   const [errorSuggestions, setErrorSuggestions] = useState([]);
   const [errorExample, setErrorExample] = useState('');
-
+  const [student,setStudent] = useState(null);
   // Fetch account status and check if password is reset
   const fetchAccountStatus = async () => {
     const studentId = sessionStorage.getItem('student');
@@ -25,7 +25,11 @@ const StudentDashboard = ({ services }) => {
       const response = await axios.get('http://localhost:5000/student/fetch', {
         params: { userId: studentId },
       });
-      sessionStorage.setItem('branch', response.data.branch);
+      const accountResponse = await axios.get('http://localhost:5000/student/fetch-full', {
+        params: { userId: studentId }
+      });
+      sessionStorage.setItem('branch',accountResponse.data.student.branch);
+      setStudent(accountResponse.data.student);
       setIsPasswordReset(response.data.reset !== 0);
       if (response.data.reset === 0) {
         setShowPasswordResetModal(true);
@@ -112,16 +116,20 @@ const StudentDashboard = ({ services }) => {
     if (routes[serviceTitle]) navigate(routes[serviceTitle]);
   };
 
-  // Loading state
-  if (loading) {
-    return (
-      <div className="d-flex justify-content-center align-items-center vh-100">
-        <Spinner animation="border" role="status">
-          <span className="visually-hidden">Loading...</span>
-        </Spinner>
-      </div>
-    );
-  }
+  const getBranchBadgeColor = (branch) => {
+    if (!branch) return 'secondary';
+    
+    // Convert to uppercase for case-insensitive comparison
+    const branchUpper = branch.toUpperCase();
+    
+    if (branchUpper.includes('MCA') ) return 'success';
+    if (branchUpper.includes('BTECH')) return 'primary';
+    if (branchUpper.includes('MTECH')) return 'warning';
+    
+    return 'secondary'; // default color
+  };
+
+  
 
   return (
     <>
@@ -132,7 +140,18 @@ const StudentDashboard = ({ services }) => {
         <div className="main-content-ad-dboard flex-grow-1">
           <div className="p-4">
             <div className="d-flex justify-content-between align-items-center mb-4">
-              <h1>Welcome {sessionStorage.getItem('student')}</h1>
+            <h2 className='fw-bold'>
+  {student ? `Welcome ${student.name} - ${sessionStorage.getItem('student')}` : ''}
+</h2>
+{student ? (
+  <Badge
+    bg={getBranchBadgeColor(student.branch)}
+    className="ms-2"
+    style={{ fontSize: '1.2em', verticalAlign: 'middle' }}
+  >
+    {student.branch}
+  </Badge>
+) : null}
             </div>
 
             {/* Logout Modal */}

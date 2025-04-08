@@ -149,9 +149,9 @@ const StudentProfile = () => {
         <StudentSideBar onLogoutClick={() => setShowLogoutModal(true)} />
 
         <div className="flex-grow-1 p-4 overflow-y-auto">
-          <div className="mb-4">
+          {/* <div className="mb-4">
             <h1>Welcome, {sessionStorage.getItem('student')}</h1>
-          </div>
+          </div> */}
 
           {accountDetails && personalDetails ? (
             <Tabs defaultActiveKey="account" className="mb-3">
@@ -278,7 +278,7 @@ const renderAccountRow = (label, value) => (
 
 const PersonalInfoCard = ({ data }) => (
   <Card className="mb-4">
-    <Card.Header className="bg-info text-white">
+    <Card.Header className="bg-primary text-white">
       <h5>Personal Information</h5>
     </Card.Header>
     <Card.Body>
@@ -299,7 +299,7 @@ const PersonalInfoCard = ({ data }) => (
 
 const FamilyInfoCard = ({ data }) => (
   <Card className="mb-4">
-    <Card.Header className="bg-info text-white">
+    <Card.Header className="bg-primary text-white">
       <h5>Family Information</h5>
     </Card.Header>
     <Card.Body>
@@ -322,7 +322,7 @@ const FamilyInfoCard = ({ data }) => (
 
 const EducationInfoCard = ({ data }) => (
   <Card className="mb-4">
-    <Card.Header className="bg-info text-white">
+    <Card.Header className="bg-primary text-white">
       <h5>Educational Background</h5>
     </Card.Header>
     <Card.Body>
@@ -347,7 +347,7 @@ const EducationInfoCard = ({ data }) => (
 
 const EntranceInfoCard = ({ data }) => (
   <Card className="mb-4">
-    <Card.Header className="bg-info text-white">
+    <Card.Header className="bg-primary text-white">
       <h5>Entrance Details</h5>
     </Card.Header>
     <Card.Body>

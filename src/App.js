@@ -33,7 +33,6 @@ function App() {
     
     { title: "Semester Enrollment", description: "Enroll here for each semester"},
     { title: "Semester Grades Upload", description: "Upload your semester grades for verification" },
-    { title: "Notifications", description: "Send important updates to students."}
   ];
 
   return (

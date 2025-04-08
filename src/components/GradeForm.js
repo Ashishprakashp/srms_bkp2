@@ -24,16 +24,18 @@ const GradeForm = () => {
   const [arrears, setArrears] = useState([]);
   const [newArrears, setNewArrears] = useState([]);
   const [semesterCreditsUpdates, setSemesterCreditsUpdates] = useState({});
+  const [originalGrades, setOriginalGrades] = useState({});
+  const [semesterNumber,setSemesterNumber] = useState('0');
 
   const gradePoints = {
     'O': 10, 'A+': 9, 'A': 8, 'B+': 7, 'B': 6, 'C': 5, 
     'RA': 0, 'SA': 0, 'W': 0
   };
+
   const getRowStyle = (subject) => {
     const isArrear = arrears.some(a => a.subject_code === subject.subject_code);
     const isCleared = clearedArrears.includes(subject.subject_code);
     
-    // Base style with important flags to override any Bootstrap styles
     const baseStyle = {
       '--bs-table-bg': getBackgroundColor(subject.subject_type),
       backgroundColor: `${getBackgroundColor(subject.subject_type)} !important`,
@@ -65,17 +67,16 @@ const GradeForm = () => {
   ];
 
   const getBackgroundColor = (type) => {
-   
     switch(type) {
-      case 'FC': return '#e3f2fd'; // Light blue
-      case 'RMC': return '#fff3e0'; // Light purple
-      case 'PCC': return '#e8f5e9'; // Light green
-      case 'PEC': return '#f3e5f5'; // Light orange
-      case 'EEC': return '#fce4ec'; // Light pink
+      case 'FC': return '#e3f2fd';
+      case 'RMC': return '#fff3e0';
+      case 'PCC': return '#e8f5e9';
+      case 'PEC': return '#f3e5f5';
+      case 'EEC': return '#fce4ec';
       default: return 'transparent';
     }
   };
-  
+
   useEffect(() => {
     const calculateGpaAndCgpa = async () => {
       if (subjects.length > 0 && Object.keys(grades).length > 0) {
@@ -93,16 +94,30 @@ const GradeForm = () => {
             if (isArrear) {
               const arrearData = arrears.find(a => a.subject_code === subject.subject_code);
               const sem = arrearData.originalSemester;
-        
-              if (gradePoints[grade] >= 5) {
-                if (!semesterUpdates[sem]) {
-                  semesterUpdates[sem] = { credits: 0, weighted: 0 };
+              console.log("Arrear: "+sem);
+              // Check if this arrear belongs to current semester
+              if (sem.split(" ")[0] === semesterNumber) {
+                // Treat as normal grade for current semester GPA
+                currentSemesterCredits += subject.credits * 10;
+                if (gradePoints[grade] >= 5) {
+                  currentSemesterWeightedSum += subject.credits * gradePoints[grade];
+                  // Also mark as cleared arrear (regardless of which semester it belongs to)
+                  newlyCleared.push(subject.subject_code);
                 }
-                semesterUpdates[sem].credits += subject.credits * 10;
-                semesterUpdates[sem].weighted += subject.credits * gradePoints[grade];
-                newlyCleared.push(subject.subject_code);
+                if (grade === 'RA') detectedNewArrears.push(subject.subject_code);
+              } else {
+                // Only affects CGPA (through semesterUpdates)
+                if (gradePoints[grade] >= 5) {
+                  if (!semesterUpdates[sem]) {
+                    semesterUpdates[sem] = { credits: 0, weighted: 0 };
+                  }
+                  semesterUpdates[sem].credits += subject.credits * 10;
+                  semesterUpdates[sem].weighted += subject.credits * gradePoints[grade];
+                  newlyCleared.push(subject.subject_code);
+                }
               }
             } else {
+              // Normal subject
               currentSemesterCredits += subject.credits * 10;
               if (gradePoints[grade] >= 5) {
                 currentSemesterWeightedSum += subject.credits * gradePoints[grade];
@@ -130,12 +145,13 @@ const GradeForm = () => {
             let totalCumulativeWeightedSum = currentSemesterWeightedSum;
     
             Object.entries(response.data.semesterSubmissions || {}).forEach(([sem, data]) => {
+              if(sem===semesterNumber)return;
               if (semesterUpdates[sem]) {
                 totalCumulativeCredits += semesterUpdates[sem].credits;
                 totalCumulativeWeightedSum += semesterUpdates[sem].weighted;
               } else {
                 totalCumulativeCredits += data.totalCredits;
-                totalCumulativeWeightedSum += data.scoredCredits * 10;
+                totalCumulativeWeightedSum += data.scoredCredits ;
               }
             });
     
@@ -147,7 +163,7 @@ const GradeForm = () => {
             });
     
             const calculatedCgpa = totalCumulativeCredits > 0 
-              ? (totalCumulativeWeightedSum / totalCumulativeCredits).toFixed(2)
+              ? ((totalCumulativeWeightedSum / totalCumulativeCredits)*10).toFixed(2)
               : 0;
             setCgpa(calculatedCgpa);
           }
@@ -164,9 +180,7 @@ const GradeForm = () => {
     const checkGradesStatus = async () => {
       try {
         const response = await axios.get(`http://localhost:5000/student/${studentId}`);
-        if (response.data.grades_filled !== '0' && 
-            response.data.can_fill_grades !== '0' && 
-            response.data.grades_filled === response.data.can_fill_grades) {
+        if (response.data.grades_filled !== '0' ) {
           setGradesAlreadyFilled(true);
         }
       } catch (error) {
@@ -176,11 +190,51 @@ const GradeForm = () => {
     checkGradesStatus();
   }, [studentId]);
 
+  function findGradeByCourseCode(responseData, courseCode) {
+    if(responseData.data==="")return null;
+    const course = responseData.data.courses.find(
+      (c) => c.courseCode === courseCode
+    );
+    return course ? course.grade : null;
+  }
+
   useEffect(() => {
     const fetchStudentDetails = async () => {
       try {
         const response = await axios.get(`http://localhost:5000/student/${studentId}`);
         setStudent(response.data);
+        console.log("Semester: "+response.data.can_fill_grades.split(' ')[0]);
+        setSemesterNumber(response.data.can_fill_grades.split(' ')[0]);
+        let existingGradesResponse=null;
+
+        if(response.data.grades_filled !=='0' && response.data.can_fill_grades!=='0'){
+
+        }
+          existingGradesResponse = await axios.get(
+            `http://localhost:5000/get-submitted-grades/${studentId}/${Number(response.data.can_fill_grades.split(' ')[0])}`
+          );
+          console.log(existingGradesResponse);
+          if(existingGradesResponse){
+            setGrades(existingGradesResponse.data.grades);
+          }else{
+
+          }
+          
+        
+          console.error('Error fetching existing grades:', error);
+        
+        // if (response.data.grades_filled !== "0") {
+        //   try {
+        //     const existingGradesResponse = await axios.get(
+        //       `http://localhost:5000/get-submitted-grades/${studentId}/${Number(response.data.can_fill_grades.split(' ')[0])}`
+        //     );
+        //     console.log(existingGradesResponse);
+        //     setGrades(existingGradesResponse.data.grades);
+        //     setOriginalGrades(existingGradesResponse.data.grades);
+        //   } catch (error) {
+        //     console.error('Error fetching existing grades:', error);
+        //   }
+        // }
         
         if (response.data.can_fill_grades !== "0") {
           const subjectsResponse = await axios.get("http://localhost:5000/semester-details", {
@@ -190,21 +244,41 @@ const GradeForm = () => {
               sem_no: response.data.can_fill_grades,
             }
           });
-
+          console.log("subjects response: ",subjectsResponse);
           const arrearsResponse = await axios.get(`http://localhost:5000/get-arrears/${studentId}`);
-          const arrearsWithSemester = arrearsResponse.data.map(arrear => ({
-            ...arrear,
-            originalSemester: arrear.semester
-          }));
+          arrearsResponse.data = arrearsResponse.data.filter(
+            arrear => arrear.status === 'active'
+          );
+          const arrearsWithSemester = arrearsResponse.data
+  .filter(arrear => arrear.semester !== semesterNumber) // Skip if semester matches
+  .map(arrear => ({
+    ...arrear,
+    originalSemester: arrear.semester
+  }));
           setArrears(arrearsWithSemester);
 
           const initialGrades = {};
           subjectsResponse.data.subjects.forEach(subject => {
-            initialGrades[subject.subject_code] = '';
+            initialGrades[subject.subject_code] = findGradeByCourseCode(existingGradesResponse, subject.subject_code);
           });
-          setGrades(initialGrades);
+          if (Object.keys(grades).length === 0) {
+            setGrades(initialGrades);
+          }
 
-          const mergedData = [...subjectsResponse.data.subjects, ...arrearsWithSemester];
+          const uniqueSubjects = new Set();
+
+          const mergedData = [
+            ...subjectsResponse.data.subjects,
+            ...arrearsWithSemester
+          ].filter(item => {
+            // Use subject_code for subjects and some unique identifier for arrears
+            const key = item.subject_code || `${item.course_code}_${item.semester}`;
+            if (!uniqueSubjects.has(key)) {
+              uniqueSubjects.add(key);
+              return true;
+            }
+            return false;
+          });
           setSubjects(mergedData);
         }
         setLoading(false);
@@ -216,6 +290,15 @@ const GradeForm = () => {
     };
     fetchStudentDetails();
   }, [studentId]);
+
+  const toggleEditMode = () => {
+    if (!isEditMode) {
+      setOriginalGrades({...grades});
+    } else {
+      setGrades({...originalGrades});
+    }
+    setIsEditMode(!isEditMode);
+  };
 
   const handleGradeChange = (subjectCode, grade) => {
     const upperGrade = grade.toUpperCase();
@@ -262,6 +345,7 @@ const GradeForm = () => {
     formData.append('clearedArrears', JSON.stringify(clearedArrears));
     formData.append('newArrears', JSON.stringify(newArrears));
     formData.append('session', student.can_fill_grades.split(" ")[1] + " " + student.can_fill_grades.split(" ")[2]);
+    formData.append('isEdit', isEditMode);
 
     try {
       const response = await axios.post('http://localhost:5000/submit-grades', formData, {
@@ -269,12 +353,12 @@ const GradeForm = () => {
       });
       
       if (response.data.success) {
-        alert("Grades Submitted Successfully!");
+        alert(isEditMode ? "Grades Updated Successfully!" : "Grades Submitted Successfully!");
         window.location.reload();
       }
     } catch (error) {
       console.error("Error submitting grades:", error.response?.data || error.message);
-      alert(`Failed to submit grades: ${error.response?.data?.error || error.message}`);
+      alert(`Failed to ${isEditMode ? 'update' : 'submit'} grades: ${error.response?.data?.error || error.message}`);
     }
   };
 
@@ -316,20 +400,42 @@ const GradeForm = () => {
         <StudentSideBar />
         
         <div className="flex-grow-1 p-4 overflow-auto position-relative">
-        <div className="d-flex justify-content-end mb-3 me-3">
-      <Button onClick={() => navigate('/student-dashboard')}>
-        Back
-      </Button>
-    </div>
+          <div className="d-flex justify-content-end mb-3 me-3">
+            <Button onClick={() => navigate('/student-dashboard')} className='fs-5 fw-bold'>
+              Back
+            </Button>
+          </div>
           <div className="container-fluid">
-          
             {gradesAlreadyFilled ? (
-              <div className="alert alert-info mt-4">
-                <i className="bi bi-info-circle-fill me-2"></i>
-                Grades for semester {student?.can_fill_grades} have already been submitted.
-              </div>
+              <Alert variant="info" className="mt-4">
+                <div className="d-flex justify-content-between align-items-center">
+                  <div>
+                    <i className="bi bi-info-circle-fill me-2"></i>
+                    Grades for semester {student?.can_fill_grades} have already been submitted.
+                    {!isEditMode && " Click 'Edit Grades' to make changes."}
+                  </div>
+                  <Button 
+                    variant={isEditMode ? 'warning' : 'primary'} 
+                    onClick={toggleEditMode}
+                  >
+                    {isEditMode ? (
+                      <>
+                        <i className="bi bi-x-circle me-2"></i>
+                        Cancel Edit
+                      </>
+                    ) : (
+                      <>
+                        <i className="bi bi-pencil-square me-2"></i>
+                        Edit Grades
+                      </>
+                    )}
+                  </Button>
+                </div>
+              </Alert>
             ) : (
-              <>
+              <></>
+            )}
+            <>
                 <div className="d-flex justify-content-between align-items-center mb-4">
                   <h2 className="mb-0 text-primary">
                     <i className="bi bi-journal-bookmark-fill me-2"></i>
@@ -401,17 +507,17 @@ const GradeForm = () => {
                               </div>
                             </Col>
                             <Col md={6}>
-                            {Object.keys(semesterCreditsUpdates).length > 0 && (
-  <div className="mb-2">
-    <h6 className="text-muted">Arrear Credits Cleared</h6>
-    <div className="d-flex justify-content-between">
-      <span>Subjects: {clearedArrears.length}</span>
-      <span>
-      Credits: {Object.values(semesterCreditsUpdates).reduce((sum, curr) => sum + curr.credits, 0)}
-      </span>
-    </div>
-  </div>
-)}
+                              {Object.keys(semesterCreditsUpdates).length > 0 && (
+                                <div className="mb-2">
+                                  <h6 className="text-muted">Arrear Credits Cleared</h6>
+                                  <div className="d-flex justify-content-between">
+                                    <span>Subjects: {clearedArrears.length}</span>
+                                    <span>
+                                      Credits: {Object.values(semesterCreditsUpdates).reduce((sum, curr) => sum + curr.credits, 0)}
+                                    </span>
+                                  </div>
+                                </div>
+                              )}
                               {cgpa !== null && (
                                 <>
                                   <div className="d-flex justify-content-between align-items-center mb-2">
@@ -465,34 +571,27 @@ const GradeForm = () => {
                           <Form onSubmit={handleSubmit}>
                             <div className="table-responsive">
                               <Table hover className="mb-0 border border-black">
-                                <thead >
-                                <tr style={{ backgroundColor: '#0d6efd', color: 'white' }}>
-                                      <th className="text-center">#</th>
-                                      <th>Course Code</th>
-                                      <th>Course Title</th>
-                                      <th className="text-center">Credits</th>
-                                      <th className="text-center">Type</th>
-                                      <th className="text-center">Grade</th>
-                                    </tr>
-                                  </thead>
+                                <thead>
+                                  <tr style={{ backgroundColor: '#0d6efd', color: 'white' }}>
+                                    <th className="text-center">#</th>
+                                    <th>Course Code</th>
+                                    <th>Course Title</th>
+                                    <th className="text-center">Credits</th>
+                                    <th className="text-center">Type</th>
+                                    <th className="text-center">Grade</th>
+                                  </tr>
+                                </thead>
                                 <tbody>
                                   {subjects.length > 0 ? (
                                     subjects.map((subject, index) => {
                                       const isArrear = arrears.some(a => a.subject_code === subject.subject_code);
                                       const isCleared = clearedArrears.includes(subject.subject_code);
                                       const gradeValue = grades[subject.subject_code] || '';
-                                      // Debugging:
-  console.log(`Subject ${subject.subject_code} (${subject.subject_name}):`, {
-    type: subject.subject_type,
-    color: getBackgroundColor(subject.subject_type),
-    isArrear,
-    isCleared
-  });
+
                                       return (
                                         <tr 
                                           key={subject._id} 
                                           style={getRowStyle(subject)}
-                                          
                                         >
                                           <td className="text-center">{index + 1}</td>
                                           <td className="fw-bold">
@@ -525,6 +624,8 @@ const GradeForm = () => {
                                                 style={{ width: '110px' }}
                                                 placeholder="Enter grade"
                                                 list={`gradeSuggestions-${index}`}
+                                                disabled={gradesAlreadyFilled && !isEditMode}
+                                                readOnly={gradesAlreadyFilled && !isEditMode}
                                               />
                                               <datalist id={`gradeSuggestions-${index}`}>
                                                 {allowedGrades.map((grade, idx) => (
@@ -625,10 +726,10 @@ const GradeForm = () => {
                                 variant="primary" 
                                 type="submit"
                                 className="px-4 py-2 rounded-pill"
-                                disabled={!isFormComplete()}
+                                disabled={!isFormComplete() || (gradesAlreadyFilled && !isEditMode)}
                               >
                                 <i className="bi bi-send-fill me-2"></i>
-                                Submit Grades & Marksheet
+                                {gradesAlreadyFilled ? 'Update Grades' : 'Submit Grades & Marksheet'}
                               </Button>
                             </div>
                           </Form>
@@ -648,7 +749,6 @@ const GradeForm = () => {
                   </>
                 )}
               </>
-            )}
           </div>
         </div>
       </div>
