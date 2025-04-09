@@ -26,6 +26,7 @@ import DynamicQuery from './components/DynamicQuery.js';
 import DynamicQueryComponent from './components/DynamicQueryComponent.js';
 import StudentProfile from './components/StudentProfile.js';
 import StudentReport from './components/StudentReport.js';
+// import TemplatesPage from './components/TemplatesPage.js';
 
 function App() {
   const services3 = [
@@ -65,6 +66,7 @@ function App() {
         <Route path="/student-report" element={<ProtectedRoute role="admin"><StudentReport/></ProtectedRoute>}></Route>
         <Route path="/dynamic-query" element={<ProtectedRoute role="admin"><DynamicQueryComponent/></ProtectedRoute>}></Route>
         <Route path="/student-profile" element={<ProtectedRoute role="admin"><StudentProfile/></ProtectedRoute>}></Route>
+        {/* <Route path="/document-templates" element={<ProtectedRoute role="admin"><TemplatesPage/></ProtectedRoute>}></Route> */}
         <Route path="/student-login" element={<StudentLogin/>}/>
         <Route path="/student-dashboard" element={<ProtectedRoute role="student"><StudentDashboard services={services3}/></ProtectedRoute>}/>
         <Route path="/semester-enroll" element={<ProtectedRoute role="student"><SemesterEnrollment/></ProtectedRoute>}/>

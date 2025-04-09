@@ -2799,12 +2799,14 @@ app.post('/query-students', async (req, res) => {
   try {
     const { query = {}, sortField, sortDirection } = req.body;
 
-    // 1. Separate conditions by collection
+    // 1. Initialize all condition arrays
     const accsConditions = [];
     const detailsConditions = [];
     const gradesConditions = [];
     const arrearsConditions = [];
+    const postMatches = []; // Initialize postMatches here
 
+    // 2. Process query conditions
     if (query.$and) {
       query.$and.forEach(condition => {
         const [path, value] = Object.entries(condition)[0];
@@ -2819,17 +2821,14 @@ app.post('/query-students', async (req, res) => {
           });
         }
         else if (path === 'arrears') {
-          // Handle arrears conditions specially
           const [operator, val] = Object.entries(value)[0];
           
           if (operator === 'hasSubject') {
-            // Filter by subject code
             arrearsConditions.push({
               'arrears.subject_code': val,
               'arrears.status': 'active'
             });
           } else {
-            // Count active arrears with null check
             const numericValue = parseInt(val);
             if (!isNaN(numericValue)) {
               const comparison = operator === 'equals' ? '$eq' : 
@@ -2872,90 +2871,144 @@ app.post('/query-students', async (req, res) => {
       });
     }
 
-    // 2. Build pipeline with initial $addFields to ensure arrears exists
+    // 3. Build postMatches after processing conditions
+    if (detailsConditions.length > 0) postMatches.push({ 'details.0': { $exists: true } });
+    if (gradesConditions.length > 0) postMatches.push({ 'grades.0': { $exists: true } });
+
+    // 4. Build complete pipeline
     const pipeline = [
-      {
-        $addFields: {
-          arrears: { $ifNull: ["$arrears", []] }
-        }
-      },
+      // Initial StudentAcc match
       { 
         $match: {
           ...(accsConditions.length > 0 || arrearsConditions.length > 0 ? { 
             $and: [...accsConditions, ...arrearsConditions] 
           } : {})
         }
+      },
+
+      // Grades lookup
+      {
+        $lookup: {
+          from: 'studentgrades',
+          let: { registerNumber: '$studentId' },
+          pipeline: [
+            {
+              $match: {
+                $expr: { $eq: ['$studentId', '$$registerNumber'] },
+                ...(gradesConditions.length > 0 ? { $and: gradesConditions } : {})
+              }
+            }
+          ],
+          as: 'grades'
+        }
+      },
+      { $unwind: { path: "$grades", preserveNullAndEmptyArrays: true } },
+
+      // CGPA calculation
+      {
+        $addFields: {
+          creditSums: {
+            $reduce: {
+              input: {
+                $objectToArray: {
+                  $ifNull: ["$grades.semesterSubmissions", {}]
+                }
+              },
+              initialValue: { totalScored: 0, totalTotal: 0 },
+              in: {
+                totalScored: {
+                  $add: [
+                    "$$value.totalScored",
+                    { $ifNull: ["$$this.v.scoredCredits", 0] }
+                  ]
+                },
+                totalTotal: {
+                  $add: [
+                    "$$value.totalTotal",
+                    { $ifNull: ["$$this.v.totalCredits", 0] }
+                  ]
+                }
+              }
+            }
+          }
+        }
+      },
+      {
+        $addFields: {
+          cgpa: {
+            $cond: [
+              { $eq: ["$creditSums.totalTotal", 0] },
+              null,
+              {
+                $round: [
+                  {
+                    $multiply: [
+                      {
+                        $divide: [
+                          "$creditSums.totalScored",
+                          "$creditSums.totalTotal"
+                        ]
+                      },
+                      10 // Multiply by 10 to convert to 10-point scale
+                    ]
+                  },
+                  2
+                ]
+              }
+            ]
+          }
+        }
+      },
+
+      // Details lookup
+      {
+        $lookup: {
+          from: 'studentdetails',
+          let: { registerNumber: '$studentId' },
+          pipeline: [
+            {
+              $match: {
+                $expr: { $eq: ['$personalInformation.register', '$$registerNumber'] },
+                ...(detailsConditions.length > 0 ? { $and: detailsConditions } : {})
+              }
+            }
+          ],
+          as: 'details'
+        }
+      },
+
+      // Post-lookup filtering
+      ...(postMatches.length > 0 ? [{ $match: { $and: postMatches } }] : []),
+
+      // Final projection
+      {
+        $project: {
+          studentId: 1,
+          name: 1,
+          branch: 1,
+          regulation: 1,
+          _class: 1,
+          facultyAdvisor: 1,
+          from_year: 1,
+          to_year: 1,
+          arrears: 1,
+          personalInformation: { $arrayElemAt: ['$details.personalInformation', 0] },
+          familyInformation: { $arrayElemAt: ['$details.familyInformation', 0] },
+          education: { $arrayElemAt: ['$details.education', 0] },
+          grades: 1,
+          cgpa: 1
+        }
+      },
+
+      // Sorting
+      {
+        $sort: sortField ? { 
+          [sortField]: sortDirection === 'asc' ? 1 : -1 
+        } : { studentId: 1 }
       }
     ];
 
-    // Rest of the pipeline remains the same...
-    const detailsLookup = {
-      $lookup: {
-        from: 'studentdetails',
-        let: { registerNumber: '$studentId' },
-        pipeline: [
-          {
-            $match: {
-              $expr: { $eq: ['$personalInformation.register', '$$registerNumber'] },
-              ...(detailsConditions.length > 0 ? { $and: detailsConditions } : {})
-            }
-          }
-        ],
-        as: 'details'
-      }
-    };
-    pipeline.push(detailsLookup);
-
-    const gradesLookup = {
-      $lookup: {
-        from: 'studentgrades',
-        let: { registerNumber: '$studentId' },
-        pipeline: [
-          {
-            $match: {
-              $expr: { $eq: ['$studentId', '$$registerNumber'] },
-              ...(gradesConditions.length > 0 ? { $and: gradesConditions } : {})
-            }
-          }
-        ],
-        as: 'grades'
-      }
-    };
-    pipeline.push(gradesLookup);
-
-    // Post-lookup matching
-    const postMatches = [];
-    if (detailsConditions.length > 0) postMatches.push({ 'details.0': { $exists: true } });
-    if (gradesConditions.length > 0) postMatches.push({ 'grades.0': { $exists: true } });
-    
-    if (postMatches.length > 0) {
-      pipeline.push({ $match: { $and: postMatches } });
-    }
-
-    // Projection
-    pipeline.push({
-      $project: {
-        studentId: 1,
-        name: 1,
-        branch: 1,
-        regulation: 1,
-        _class: 1,
-        facultyAdvisor: 1,
-        from_year: 1,
-        to_year: 1,
-        arrears: 1,
-        personalInformation: { $arrayElemAt: ['$details.personalInformation', 0] },
-        familyInformation: { $arrayElemAt: ['$details.familyInformation', 0] },
-        education: { $arrayElemAt: ['$details.education', 0] },
-        grades: { $arrayElemAt: ['$grades', 0] }
-      }
-    });
-
-    // Sorting
-    pipeline.push({
-      $sort: sortField ? { [sortField]: sortDirection === 'asc' ? 1 : -1 } : { studentId: 1 }
-    });
-
+    // 5. Execute aggregation
     const results = await StudentAcc.aggregate(pipeline).exec();
     res.json(results);
 

@@ -1,23 +1,16 @@
-import React, { useState , useEffect ,useRef} from 'react';
+import React, { useState } from 'react';
 import { Table, Form, Button, Row, Col, Card, Spinner, Pagination } from 'react-bootstrap';
 import axios from 'axios';
 import TitleBar from './TitleBar.js';
 import SideBar from './SideBar.js';
 import { useNavigate } from 'react-router-dom';
 import { utils, writeFile } from 'xlsx';
-import jsPDF from 'jspdf';
-import autoTable from 'jspdf-autotable';
 
 const DynamicQuery = () => {
-  
-  const [maxSemesters, setMaxSemesters] = useState(4);
   const [currentPage, setCurrentPage] = useState(1);
   const [studentsPerPage] = useState(10);
   const navigate = useNavigate();
   const [showLogoutModal, setShowLogoutModal] = useState(false);
-  const [activeFilterId, setActiveFilterId] = useState(null);
-  const attributeDropdownRefs = useRef({});
-  
   
   const handleLogout = async () => {
     try {
@@ -29,15 +22,6 @@ const DynamicQuery = () => {
       window.location.reload();
     }
   };
-
-  const semesterGpaAttributes = Array.from({ length: maxSemesters }, (_, i) => ({
-    label: `Sem ${i + 1} GPA`,
-    path: `grades.semesterSubmissions.${i + 1}.gpa`,
-    type: 'number',
-    operators: ['equals', 'greaterThan', 'lessThan'],
-    inputType: 'number',
-    step: '0.01'
-  }));
 
   // Available attributes with metadata
   const availableAttributes = [
@@ -58,7 +42,7 @@ const DynamicQuery = () => {
       label: 'Branch',
       path: 'branch',
       type: 'enum',
-      enumOptions: ['MCA', 'MTECH IT', 'MTECH IT AI & DS', 'BTECH IT'],
+      enumOptions: ['MCA', 'MBA', 'MSc', 'BCom', 'BSc'],
       operators: ['equals']
     },
     {
@@ -68,7 +52,13 @@ const DynamicQuery = () => {
       enumOptions: ['2020', '2021', '2022', '2023', '2024'],
       operators: ['equals']
     },
-    
+    {
+      label: 'Class',
+      path: 'account._class',
+      type: 'enum',
+      enumOptions: ['REG', 'SS'],
+      operators: ['equals']
+    },
     // Other collection attributes
     {
       label: 'Community',
@@ -149,11 +139,17 @@ const DynamicQuery = () => {
       operators: ['equals']
     },
     // StudentGrades
-    // StudentGrades (dynamic semesters)
-    ...semesterGpaAttributes,
     {
-      label: 'CGPA',
-      path: 'cgpa',
+      label: 'Sem 1 GPA',
+      path: 'grades.semesterSubmissions.1.gpa',
+      type: 'number',
+      operators: ['equals', 'greaterThan', 'lessThan'],
+      inputType: 'number',
+      step: '0.01'
+    },
+    {
+      label: 'Sem 2 GPA',
+      path: 'grades.semesterSubmissions.2.gpa',
       type: 'number',
       operators: ['equals', 'greaterThan', 'lessThan'],
       inputType: 'number',
@@ -183,204 +179,37 @@ const DynamicQuery = () => {
     direction: 'asc'
   });
 
-
-  useEffect(() => {
-    const branchFilter = filters.find(f => f.attributePath === 'branch');
-    if (branchFilter) {
-      const branchValue = branchFilter.value.toUpperCase();
-      let newMax = 4;
-      if (branchValue.startsWith('BTECH')) {
-        newMax = 8;
-      } else if (branchValue.startsWith('MCA') || branchValue.startsWith('MTECH')) {
-        newMax = 4;
-      }
-      setMaxSemesters(newMax);
-    } else {
-      setMaxSemesters(4);
-    }
-  }, [filters]);
-
   // Filter management
   const addFilter = () => {
-    const newFilter = { 
+    setFilters([...filters, { 
       id: Date.now(),
       attributePath: availableAttributes[0].path,
       operator: availableAttributes[0].operators[0],
-      value: '',
-      searchTerm: ''
-    };
-    setFilters([...filters, newFilter]);
-    setActiveFilterId(newFilter.id);
+      value: ''
+    }]);
   };
 
   const removeFilter = (id) => {
     setFilters(filters.filter(filter => filter.id !== id));
   };
 
-  const updateFilter = (id, updates) => {
+  const updateFilter = (id, key, value) => {
     setFilters(filters.map(filter => {
       if (filter.id === id) {
-        // When attributePath changes, reset operator and value
-        if (updates.attributePath && updates.attributePath !== filter.attributePath) {
-          const newAttribute = availableAttributes.find(a => a.path === updates.attributePath);
+        if (key === 'attributePath') {
+          const newAttribute = availableAttributes.find(a => a.path === value);
           return {
             ...filter,
-            attributePath: updates.attributePath,
+            attributePath: value,
             operator: newAttribute.operators[0],
-            value: newAttribute.type === 'enum' ? newAttribute.enumOptions[0] : '',
-            searchTerm: newAttribute.label
+            value: newAttribute.type === 'enum' ? newAttribute.enumOptions[0] : ''
           };
         }
-        return { ...filter, ...updates };
+        return { ...filter, [key]: value };
       }
       return filter;
     }));
   };
-
-  const getFilteredAttributes = (searchTerm) => {
-    if (!searchTerm) return availableAttributes;
-    return availableAttributes.filter(attr => 
-      attr.label.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      attr.path.toLowerCase().includes(searchTerm.toLowerCase())
-    );
-  };
-
-  const renderFilters = () => {
-    return filters.map((filter) => {
-      const attribute = availableAttributes.find(a => a.path === filter.attributePath);
-      const isEnum = attribute?.type === 'enum';
-      const filteredAttributes = getFilteredAttributes(filter.searchTerm);
-      const isActive = activeFilterId === filter.id;
-  
-      // Calculate display value - show search term when typing, otherwise show selected attribute label
-      const displayValue = isActive ? filter.searchTerm : (attribute?.label || '');
-  
-      return (
-        <Row key={filter.id} className="mb-3 align-items-center">
-          <Col md={4}>
-            <div 
-              className="position-relative"
-              ref={el => attributeDropdownRefs.current[filter.id] = el}
-              onClick={(e) => e.stopPropagation()}
-            >
-              <Form.Control
-                type="text"
-                value={displayValue}
-                onChange={(e) => {
-                  updateFilter(filter.id, { 
-                    searchTerm: e.target.value,
-                    // Clear attributePath if user is typing something different
-                    attributePath: e.target.value === '' ? '' : 
-                      (attribute?.label === e.target.value ? filter.attributePath : '')
-                  });
-                }}
-                onFocus={() => {
-                  setActiveFilterId(filter.id);
-                  // Initialize search term with current attribute label if empty
-                  if (!filter.searchTerm && attribute) {
-                    updateFilter(filter.id, { searchTerm: attribute.label });
-                  }
-                }}
-                placeholder="Search attribute..."
-              />
-              {isActive && (
-                <div 
-                  className="position-absolute w-100 bg-white border mt-1"
-                  style={{ 
-                    zIndex: 1000, 
-                    maxHeight: '300px', 
-                    overflowY: 'auto',
-                    display: filteredAttributes.length > 0 ? 'block' : 'none'
-                  }}
-                >
-                  {filteredAttributes.map((attr) => (
-                    <div
-                      key={attr.path}
-                      className="p-2 hover-bg-light cursor-pointer"
-                      onClick={() => {
-                        updateFilter(filter.id, { 
-                          attributePath: attr.path,
-                          searchTerm: attr.label
-                        });
-                        setActiveFilterId(null);
-                      }}
-                    >
-                      <div><strong>{attr.label}</strong></div>
-                      <small className="text-muted">{attr.path}</small>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          </Col>
-          <Col md={2}>
-            <Form.Select 
-              value={filter.operator} 
-              onChange={(e) => updateFilter(filter.id, { operator: e.target.value })}
-            >
-              {attribute?.operators.map((op) => (
-                <option key={op} value={op}>
-                  {op === 'hasSubject' ? 'Has Subject' : 
-                   op.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase())}
-                </option>
-              ))}
-            </Form.Select>
-          </Col>
-          <Col md={4}>
-            {filter.operator === 'hasSubject' ? (
-              <Form.Control
-                type="text"
-                value={filter.value}
-                onChange={(e) => updateFilter(filter.id, { value: e.target.value })}
-                placeholder="Enter subject code"
-              />
-            ) : isEnum ? (
-              <Form.Select
-                value={filter.value}
-                onChange={(e) => updateFilter(filter.id, { value: e.target.value })}
-              >
-                {attribute.enumOptions.map(option => (
-                  <option key={option} value={option}>{option}</option>
-                ))}
-              </Form.Select>
-            ) : (
-              <Form.Control
-                type={attribute?.inputType || 'text'}
-                value={filter.value}
-                onChange={(e) => updateFilter(filter.id, { value: e.target.value })}
-                placeholder={`Enter ${attribute?.label.toLowerCase()}`}
-                step={attribute?.step || undefined}
-              />
-            )}
-          </Col>
-          <Col md={2}>
-            <Button variant="danger" onClick={() => removeFilter(filter.id)}>
-              Remove
-            </Button>
-          </Col>
-        </Row>
-      );
-    });
-  };
-
-  // Close dropdown when clicking outside
-  useEffect(() => {
-    const handleClickOutside = (event) => {
-      // Check if we clicked outside all attribute dropdowns
-      const clickedOutsideAll = Object.values(attributeDropdownRefs.current).every(ref => {
-        return ref && !ref.contains(event.target);
-      });
-  
-      if (clickedOutsideAll) {
-        setActiveFilterId(null);
-      }
-    };
-  
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-    };
-  }, []);
 
   // Query building with proper numeric handling
   const buildQuery = () => {
@@ -546,7 +375,6 @@ const DynamicQuery = () => {
         sortField: sortConfig.key,
         sortDirection: sortConfig.direction
       });
-      console.log(response.data);
       const processedData = response.data.map(student => ({
         _id: student._id,
         studentId: student.studentId || '-',
@@ -558,7 +386,6 @@ const DynamicQuery = () => {
         batch: student.from_year && student.to_year 
                 ? `${student.from_year}-${student.to_year}` 
                 : '-',
-        cgpa: student.cgpa || null, 
         arrears: student.arrears || [], 
         account: {
           _class: student._class || '-',
@@ -574,7 +401,7 @@ const DynamicQuery = () => {
           }
         }
       }));
-      // console.log(processedData);
+
       setStudents(processedData);
       setQueriedAttributes([...new Set(filters.map(filter => filter.attributePath))]);
     } catch (error) {
@@ -602,22 +429,19 @@ const DynamicQuery = () => {
       })],
       [],
       [
-        'S.no',
         'Register No',
         'Name',
         'Branch',
         'Batch', 
         ...queriedAttributes.map(path => {
-          
           if (path === 'arrears') return 'Active Arrears Count';
           return availableAttributes.find(a => a.path === path)?.label || path;
         })
       ]
     ];
 
-    sortedStudents.forEach((student, index) => {
+    sortedStudents.forEach(student => {
       worksheetData.push([
-        index + 1,
         student.studentId,
         student.name,
         student.branch,
@@ -625,9 +449,6 @@ const DynamicQuery = () => {
           ? `${student.from_year}-${student.to_year}`
           : '-',
         ...queriedAttributes.map(path => {
-          if (path === 'cgpa') {
-            return student.cgpa ? student.cgpa.toFixed(2) : '-';
-          }
           if (path === 'arrears') {
             return student.arrears?.filter(arr => arr.status === 'active').length || 0;
           }
@@ -642,7 +463,6 @@ const DynamicQuery = () => {
     utils.book_append_sheet(workbook, worksheet, "Students");
 
     const cols = [
-      { wch: 10 },
       { wch: 15 },
       { wch: 30 },
       { wch: 10 },
@@ -672,102 +492,6 @@ const DynamicQuery = () => {
     </Pagination>
   );
 
-  const downloadPDF = () => {
-    const doc = new jsPDF({
-      orientation: 'landscape',
-      unit: 'mm',
-      format: 'a4'
-    });
-  
-    // Add logo (replace with your actual logo path)
-    const logoUrl = '/AnnaUniLogo.png'; // Update this path
-    doc.addImage(logoUrl, 'PNG', 20, 5, 20, 20); // Centered horizontally (A4 landscape width: 297mm)
-  
-    // Header text
-    doc.setFontSize(16);
-    doc.setFont('helvetica', 'bold');
-    doc.text('DEPARTMENT OF INFORMATION SCIENCE AND TECHNOLOGY', 50, 15);
-    
-    doc.setFontSize(14);
-    doc.setFont('helvetica', 'normal');
-    doc.text('COLLEGE OF ENGINEERING GUIDY CAMPUS', 50, 20);
-    
-    doc.setFontSize(12);
-    doc.text('ANNA UNIVERSITY, CHENNAI – 600 025', 50, 25);
-    doc.setLineWidth(0.5);
-  doc.line(10, 28, 287, 28);
-    // Table data
-    const headers = [
-      'S.no',
-      'Register No',
-      'Name',
-      'Branch',
-      'Batch',
-      ...queriedAttributes.map(path => {
-        if (path === 'arrears') return 'Active Arrears';
-        return availableAttributes.find(a => a.path === path)?.label || path;
-      })
-    ];
-  
-    const data = sortedStudents.map((student, index) => [
-      index + 1,
-      student.studentId,
-      student.name,
-      student.branch,
-      student.batch,
-      ...queriedAttributes.map(path => {
-        if (path === 'arrears') {
-          return student.arrears?.filter(arr => arr.status === 'active').length || 0;
-        }
-        if (path === 'cgpa') {
-          return student.cgpa ? student.cgpa.toFixed(2) : '-';
-        }
-        const value = getNestedValue(student, path);
-        return typeof value === 'number' ? value.toFixed(2) : value;
-      })
-    ]);
-  
-    // Generate table using autoTable directly
-    autoTable(doc, {
-      head: [headers],
-    body: data,
-    startY: 50,
-    styles: {
-      fontSize: 11,           // Reduced font size
-    cellPadding: 1.5,      // Reduced from default 3
-    lineHeight: 1.2,       // Tighter line spacing
-      lineColor: [0, 0, 0], // Black borders
-      lineWidth: 0.2,
-      valign: 'middle'
-    },
-    headStyles: {
-      fontSize: 11,           // Match header font size
-    cellPadding: 1.5  ,     // Match header padding
-      fillColor: [255, 255, 255], // White header background
-      textColor: [0, 0, 0],       // Black text
-      fontStyle: 'bold',
-      lineColor: [0, 0, 0],       // Black borders
-      lineWidth: 0.3
-    },
-    bodyStyles: {
-      fontSize: 10,           // Smaller body font
-    cellPadding: 1.5   ,    // Consistent padding
-      fillColor: [255, 255, 255], // Transparent rows
-      textColor: [0, 0, 0],       // Black text
-      lineColor: [0, 0, 0],       // Black borders
-      lineWidth: 0.2
-    },
-    alternateRowStyles: {
-      fillColor: [255, 255, 255] // Keep same as body for no striping
-    },
-      didDrawPage: (data) => {
-        doc.setFontSize(10);
-        doc.text('© Anna University - Department of IST', data.settings.margin.left, doc.internal.pageSize.height - 10);
-      }
-    });
-  
-    doc.save(`AnnaUniv_IST_Students_${new Date().toISOString().split('T')[0]}.pdf`);
-  };
   return (
     <>
       <TitleBar />
@@ -809,37 +533,92 @@ const DynamicQuery = () => {
                 </div>
               </Card.Header>
               <Card.Body>
-        {filters.length === 0 ? (
-          <div className="text-center text-muted py-3">
-            No filters added. Click "Add Filter" to start querying.
-          </div>
-        ) : (
-          <>
-            {renderFilters()}
-            <div className="d-flex justify-content-end mt-3">
-              <Button variant="success" onClick={fetchStudents} disabled={loading}>
-                {loading ? (
+                {filters.length === 0 ? (
+                  <div className="text-center text-muted py-3">
+                    No filters added. Click "Add Filter" to start querying.
+                  </div>
+                ) : (
                   <>
-                    <Spinner as="span" animation="border" size="sm" className="me-2" />
-                    Searching...
+                    {filters.map((filter) => {
+                      const attribute = availableAttributes.find(a => a.path === filter.attributePath);
+                      const isEnum = attribute?.type === 'enum';
+                      
+                      return (
+                        <Row key={filter.id} className="mb-3 align-items-center">
+                          <Col md={4}>
+                            <Form.Select 
+                              value={filter.attributePath} 
+                              onChange={(e) => updateFilter(filter.id, 'attributePath', e.target.value)}
+                            >
+                              {availableAttributes.map((attr) => (
+                                <option key={attr.path} value={attr.path}>{attr.label}</option>
+                              ))}
+                            </Form.Select>
+                          </Col>
+                          <Col md={2}>
+                            <Form.Select 
+                              value={filter.operator} 
+                              onChange={(e) => updateFilter(filter.id, 'operator', e.target.value)}
+                            >
+                              {attribute?.operators.map((op) => (
+                                <option key={op} value={op}>
+                                  {op === 'hasSubject' ? 'Has Subject' : 
+                                   op.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase())}
+                                </option>
+                              ))}
+                            </Form.Select>
+                          </Col>
+                          <Col md={4}>
+                            {filter.operator === 'hasSubject' ? (
+                              <Form.Control
+                                type="text"
+                                value={filter.value}
+                                onChange={(e) => updateFilter(filter.id, 'value', e.target.value)}
+                                placeholder="Enter subject code"
+                              />
+                            ) : isEnum ? (
+                              <Form.Select
+                                value={filter.value}
+                                onChange={(e) => updateFilter(filter.id, 'value', e.target.value)}
+                              >
+                                {attribute.enumOptions.map(option => (
+                                  <option key={option} value={option}>{option}</option>
+                                ))}
+                              </Form.Select>
+                            ) : (
+                              <Form.Control
+                                type={attribute?.inputType || 'text'}
+                                value={filter.value}
+                                onChange={(e) => updateFilter(filter.id, 'value', e.target.value)}
+                                placeholder={`Enter ${attribute?.label.toLowerCase()}`}
+                                step={attribute?.step || undefined}
+                              />
+                            )}
+                          </Col>
+                          <Col md={2}>
+                            <Button variant="danger" onClick={() => removeFilter(filter.id)}>
+                              Remove
+                            </Button>
+                          </Col>
+                        </Row>
+                      );
+                    })}
+                    <div className="d-flex justify-content-end mt-3">
+                      <Button variant="success" onClick={fetchStudents} disabled={loading}>
+                        {loading ? (
+                          <>
+                            <Spinner as="span" animation="border" size="sm" className="me-2" />
+                            Searching...
+                          </>
+                        ) : 'Search Students'}
+                      </Button>
+                      <Button variant="primary" onClick={downloadExcel} disabled={students.length === 0} className='ms-5'>
+                        Download Excel
+                      </Button>
+                    </div>
                   </>
-                ) : 'Search Students'}
-              </Button>
-              <Button 
-    variant="danger" 
-    onClick={downloadPDF} 
-    disabled={students.length === 0} 
-    className='ms-3'
-  >
-    Download PDF
-  </Button>
-              <Button variant="primary" onClick={downloadExcel} disabled={students.length === 0} className='ms-5'>
-                Download Excel
-              </Button>
-            </div>
-          </>
-        )}
-      </Card.Body>
+                )}
+              </Card.Body>
             </Card>
 
             <Card>
@@ -855,7 +634,6 @@ const DynamicQuery = () => {
                     <Table striped bordered hover>
                       <thead>
                         <tr>
-                          <th>S.no</th>
                           <th onClick={() => requestSort('studentId')} style={{ cursor: 'pointer' }}>
                             Register No{getSortIndicator('studentId')}
                           </th>
@@ -876,9 +654,8 @@ const DynamicQuery = () => {
                         </tr>
                       </thead>
                       <tbody>
-                        {currentStudents.map((student,index) => (
+                        {currentStudents.map((student) => (
                           <tr key={student._id}>
-                            <td>{(currentPage - 1) * studentsPerPage + index + 1}</td>
                             <td>{student.studentId}</td>
                             <td>{student.name}</td>
                             <td>{student.branch}</td>
