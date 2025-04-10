@@ -1439,31 +1439,58 @@ app.post('/student/enroll/:studentId/:semesterNumber', async (req, res) => {
 });
 
 app.get("/get-enrollment-data", async (req, res) => {
-  const { branch, regulation, from_year, to_year, _class, sem_no } = req.query;
+  const { branch, regulation, from_year, to_year, _class, sem_no ,grades} = req.query;
   console.log(req.query);
-  try {
-    // Find the enrollment record matching the criteria
-    const enrollment = await Enrollment.findOne({
-      branch,
-      regulation,
-      batch: `${from_year}-${to_year}`,
-      semester: sem_no,
-    });
-    console.log("Fetch enrollment: "+enrollment.data);
-    if (!enrollment) {
-      return res.status(200).json(null);
+  if(grades){
+    try {
+      // Find the enrollment record matching the criteria
+      const enrollment = await GradesEnrollment.findOne({
+        branch,
+        regulation,
+        batch: `${from_year}-${to_year}`,
+        semester: sem_no,
+      });
+      console.log("Fetch enrollment: "+enrollment.data);
+      if (!enrollment) {
+        return res.status(200).json(null);
+      }
+  
+      // Extract the session (month and year) and status
+      const [month, year] = enrollment.session.split(" ");
+      const status = enrollment.status;
+  
+      // Return the data
+      res.status(200).json({ month, year, status });
+    } catch (error) {
+      console.error("Error fetching enrollment data:", error);
+      res.status(500).json({ message: "Internal server error" });
     }
-
-    // Extract the session (month and year) and status
-    const [month, year] = enrollment.session.split(" ");
-    const status = enrollment.status;
-
-    // Return the data
-    res.status(200).json({ month, year, status });
-  } catch (error) {
-    console.error("Error fetching enrollment data:", error);
-    res.status(500).json({ message: "Internal server error" });
+  }else{
+    try {
+      // Find the enrollment record matching the criteria
+      const enrollment = await Enrollment.findOne({
+        branch,
+        regulation,
+        batch: `${from_year}-${to_year}`,
+        semester: sem_no,
+      });
+      console.log("Fetch enrollment: "+enrollment.data);
+      if (!enrollment) {
+        return res.status(200).json(null);
+      }
+  
+      // Extract the session (month and year) and status
+      const [month, year] = enrollment.session.split(" ");
+      const status = enrollment.status;
+  
+      // Return the data
+      res.status(200).json({ month, year, status });
+    } catch (error) {
+      console.error("Error fetching enrollment data:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
   }
+  
 });
 
 app.post('/admin/set-enrollment', async (req, res) => {
@@ -1498,6 +1525,9 @@ app.post('/admin/set-enrollment', async (req, res) => {
   }
   
 });
+
+
+
 
 //Revoke set of students
 app.post("/student/enrollment/revoke-all", async (req, res) => {
@@ -1570,6 +1600,7 @@ app.post("/student/enrollment/disable-all/:semesterNumber", async (req, res) => 
       res.status(200).json({ message: "Enrollment disabled successfully", updatedStudents });
     
     }else{
+      console.log("Look here!");
       const updatedStudents = await StudentAcc.updateMany(
         { branch:branch, regulation:year, from_year:from_year, to_year:to_year, _class:_class },
         { $set: { enrolled: "0", can_enroll: "0" } }
@@ -2581,7 +2612,7 @@ app.post('/admin/approve-grades', async (req, res) => {
     // Update student account status
     await StudentAcc.updateOne(
       { studentId },
-      { $set: { grades_approved: session } }
+      { $set: { grades_approved: session ,can_fill_grades: '0' } }
     );
     
     res.json({ 
@@ -2601,15 +2632,16 @@ app.post('/admin/approve-grades', async (req, res) => {
 // Reject grades
 app.post('/admin/reject-grades', async (req, res) => {
   try {
-    const { studentId, semester, rejectedBy,session } = req.body;
-    
+    const { studentId, semester, rejectedBy,session ,rejectReason} = req.body;
+    console.log("Reject reason: "+rejectReason);
     await StudentGrades.updateOne(
       { studentId },
       { 
         $set: { 
           [`semesterSubmissions.${semester}.verified`]: false,
           [`semesterSubmissions.${semester}.rejectedBy`]: rejectedBy,
-          [`semesterSubmissions.${semester}.rejectedAt`]: new Date() 
+          [`semesterSubmissions.${semester}.rejectedAt`]: new Date(),
+          [`semesterSubmissions.${semester}.rejectReason`]: rejectReason,
         } 
       }
     );
@@ -3094,6 +3126,9 @@ app.get('/get-submitted-grades/:studentId/:semester', async (req, res) => {
       semester,
       gpa: semesterData.gpa,
       submissionDate: semesterData.submissionDate,
+      rejectedAt: semesterData.rejectedAt,
+      rejectedBy: semesterData.rejectedBy,
+      rejectReason: semesterData.rejectReason,
       verified: semesterData.verified,
       courses: coursesWithGrades.map(course => ({
         courseCode: course.courseCode,

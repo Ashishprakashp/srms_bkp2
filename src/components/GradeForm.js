@@ -26,6 +26,8 @@ const GradeForm = () => {
   const [semesterCreditsUpdates, setSemesterCreditsUpdates] = useState({});
   const [originalGrades, setOriginalGrades] = useState({});
   const [semesterNumber,setSemesterNumber] = useState('0');
+  const [hasRejectedGrades, setHasRejectedGrades] = useState(false);
+  const [rejectionDetails, setRejectionDetails] = useState(null);
 
   const gradePoints = {
     'O': 10, 'A+': 9, 'A': 8, 'B+': 7, 'B': 6, 'C': 5, 
@@ -216,6 +218,16 @@ const GradeForm = () => {
           console.log(existingGradesResponse);
           if(existingGradesResponse){
             setGrades(existingGradesResponse.data.grades);
+            // Check for rejection
+          if (existingGradesResponse.data?.rejectReason) {
+            setHasRejectedGrades(true);
+            setRejectionDetails({
+              reason: existingGradesResponse.data.rejectReason,
+              rejectedBy: existingGradesResponse.data.rejectedBy,
+              rejectedAt: new Date(existingGradesResponse.data.rejectedAt).toLocaleString()
+            });
+            setIsEditMode(true); // Automatically enable edit mode for resubmission
+          }
           }else{
 
           }
@@ -353,6 +365,8 @@ const GradeForm = () => {
       });
       
       if (response.data.success) {
+        setHasRejectedGrades(false);
+        setRejectionDetails(null);
         alert(isEditMode ? "Grades Updated Successfully!" : "Grades Submitted Successfully!");
         window.location.reload();
       }
@@ -406,7 +420,7 @@ const GradeForm = () => {
             </Button>
           </div>
           <div className="container-fluid">
-            {gradesAlreadyFilled ? (
+            {(!isEditMode && student?.can_fill_grades !== '0' && gradesAlreadyFilled) ? (
               <Alert variant="info" className="mt-4">
                 <div className="d-flex justify-content-between align-items-center">
                   <div>
@@ -435,6 +449,33 @@ const GradeForm = () => {
             ) : (
               <></>
             )}
+            {hasRejectedGrades && (
+  <Alert variant="danger" className="mt-4">
+    <div className="d-flex justify-content-between align-items-center">
+      <div>
+        <i className="bi bi-exclamation-triangle-fill me-2"></i>
+        <strong>Your grades submission has been rejected!</strong>
+        <div className="mt-2">
+          <p className="mb-1"><strong>Reason:</strong> {rejectionDetails.reason}</p>
+          <p className="mb-1"><strong>Action required:</strong> Please review and resubmit your grades</p>
+          <small className="text-muted">
+            Rejected by {rejectionDetails.rejectedBy} on {rejectionDetails.rejectedAt}
+          </small>
+        </div>
+      </div>
+      <Button 
+        variant="outline-danger"
+        onClick={() => {
+          setHasRejectedGrades(false);
+          setIsEditMode(true);
+        }}
+      >
+        <i className="bi bi-arrow-clockwise me-2"></i>
+        Resubmit Grades
+      </Button>
+    </div>
+  </Alert>
+)}
             <>
                 <div className="d-flex justify-content-between align-items-center mb-4">
                   <h2 className="mb-0 text-primary">
@@ -624,7 +665,7 @@ const GradeForm = () => {
                                                 style={{ width: '110px' }}
                                                 placeholder="Enter grade"
                                                 list={`gradeSuggestions-${index}`}
-                                                disabled={gradesAlreadyFilled && !isEditMode}
+                                                disabled={(gradesAlreadyFilled && !isEditMode)||(hasRejectedGrades)}
                                                 readOnly={gradesAlreadyFilled && !isEditMode}
                                               />
                                               <datalist id={`gradeSuggestions-${index}`}>
@@ -676,6 +717,7 @@ const GradeForm = () => {
                                           onChange={handleFileChange}
                                           className="me-3"
                                           style={{ display: 'none' }}
+                                          disabled={(gradesAlreadyFilled && !isEditMode)||(hasRejectedGrades)}
                                         />
                                         <label htmlFor="marksheetUpload" className="btn btn-outline-secondary me-3">
                                           <i className="bi bi-upload me-2"></i>
@@ -723,14 +765,14 @@ const GradeForm = () => {
                                 )}
                               </div>
                               <Button 
-                                variant="primary" 
-                                type="submit"
-                                className="px-4 py-2 rounded-pill"
-                                disabled={!isFormComplete() || (gradesAlreadyFilled && !isEditMode)}
-                              >
-                                <i className="bi bi-send-fill me-2"></i>
-                                {gradesAlreadyFilled ? 'Update Grades' : 'Submit Grades & Marksheet'}
-                              </Button>
+  variant="primary" 
+  type="submit"
+  className="px-4 py-2 rounded-pill"
+  disabled={!isFormComplete() || (gradesAlreadyFilled && !isEditMode)}
+>
+  <i className="bi bi-send-fill me-2"></i>
+  {hasRejectedGrades ? 'Resubmit Grades' : (gradesAlreadyFilled ? 'Update Grades' : 'Submit Grades & Marksheet')}
+</Button>
                             </div>
                           </Form>
                         </Card.Body>

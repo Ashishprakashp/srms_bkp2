@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { Container, Row, Col, Nav, Button, Table, Pagination, Spinner, Modal, Form, FormGroup, FormLabel, FormControl, FormSelect, Badge, Alert} from "react-bootstrap";
+import { Card, OverlayTrigger, Tooltip, Container, Row, Col, Nav, Button, Table, Pagination, Spinner, Modal, Form, FormGroup, FormLabel, FormControl, FormSelect, Badge, Alert} from "react-bootstrap";
 import { useLocation, useNavigate } from 'react-router-dom';
 import TitleBar from "./TitleBar.js";
 import SideBar from "./SideBar.js";
@@ -33,6 +33,8 @@ const [approvedLoading, setApprovedLoading] = useState(true);
 const [month_,setMonth]=useState('');
 const [year_,setYear]=useState('');
 const [path,setPath]=useState(null);
+const [showRejectModal, setShowRejectModal] = useState(false);
+  const [rejectionReason, setRejectionReason] = useState('');
 
   // Fetch semester numbers from the database
   useEffect(() => {
@@ -79,10 +81,10 @@ const [path,setPath]=useState(null);
             to_year,
             _class,
             sem_no: selectedSemester,
-
+            grades:true,
           },
         });
-
+        console.log(response);
         if (response.data) {
           const { month, year, status } = response.data;
           console.log("MONTH: "+month);
@@ -272,35 +274,7 @@ const [path,setPath]=useState(null);
     }
   };
   
-  const handleReject = async () => {
-    try {
-      await axios.post('http://localhost:5000/admin/reject-grades', {
-        studentId: selectedStudent,
-        semester: selectedSemester,
-        session:sessionData[Number(selectedSemester)].month+ " "+ sessionData[Number(selectedSemester)].year,
-        rejectedBy: sessionStorage.getItem('user')
-      });
-      
-      // Update local state
-      setStudents(prevStudents => 
-        prevStudents.map(student => 
-          student.studentId === selectedStudent 
-            ? { 
-                ...student, 
-                grades_filled: '0',
-                can_fill_grades: selectedSemester // Allow them to resubmit
-              } 
-            : student
-        )
-      );
-      
-      setShowGradeModal(false);
-      alert('Grades rejected. Student can resubmit.');
-    } catch (error) {
-      console.error('Error rejecting grades:', error);
-      alert('Failed to reject grades');
-    }
-  };
+  
 
 
   // Handle navigation to a specific semester
@@ -357,7 +331,7 @@ const [path,setPath]=useState(null);
   
         // Open enrollment
         try {
-          await axios.post("http://localhost:5000/admin/set-enrollment", {
+          const res1 = await axios.post("http://localhost:5000/admin/set-enrollment", {
             branch,
             regulation,
             from_year,
@@ -368,7 +342,7 @@ const [path,setPath]=useState(null);
             status: "open",
             grades:true,
           }, { withCredentials: true });
-  
+          console.log(res1);
           await enableAll();
           setEnrollmentStatus((prevStatus) => ({
             ...prevStatus,
@@ -382,7 +356,7 @@ const [path,setPath]=useState(null);
       } else {
         // Close enrollment
         try {
-          await axios.post("http://localhost:5000/admin/set-enrollment", {
+          const res2 = await axios.post("http://localhost:5000/admin/set-enrollment", {
             branch,
             regulation,
             from_year,
@@ -393,6 +367,7 @@ const [path,setPath]=useState(null);
             status: "complete",
             grades:true
           }, { withCredentials: true });
+          console.log(res2);
           await disableAll();
           setEnrollmentStatus((prevStatus) => ({
             ...prevStatus,
@@ -512,6 +487,50 @@ const [path,setPath]=useState(null);
     }
   };
 
+  //rejection logic
+  const handleReject = () => {
+    setShowRejectModal(true);
+  };
+
+  const confirmReject = async () => {
+    if (!rejectionReason.trim()) {
+      alert('Please enter a rejection reason.');
+      return;
+    }
+    console.log("reason: "+rejectionReason);
+    console.log("trim reason: "+rejectionReason.trim());
+    try {
+      await axios.post('http://localhost:5000/admin/reject-grades', {
+        studentId: selectedStudent,
+        semester: selectedSemester,
+        session: sessionData[Number(selectedSemester)].month + " " + sessionData[Number(selectedSemester)].year,
+        rejectedBy: sessionStorage.getItem('user'),
+        rejectReason: rejectionReason.trim()
+      });
+      
+      // Update local state
+      setStudents(prevStudents => 
+        prevStudents.map(student => 
+          student.studentId === selectedStudent 
+            ? { 
+                ...student, 
+                grades_filled: '0',
+                can_fill_grades: selectedSemester
+              } 
+            : student
+        )
+      );
+      
+      setShowRejectModal(false);
+      setShowGradeModal(false);
+      setRejectionReason('');
+      alert('Grades rejected. Student can resubmit.');
+    } catch (error) {
+      console.error('Error rejecting grades:', error);
+      alert('Failed to reject grades');
+    }
+  };
+
   // Render loading spinner
   if (loading) {
     return (
@@ -548,6 +567,9 @@ const [path,setPath]=useState(null);
       <div className="d-flex flex-grow-1">
         <SideBar />
         <Container fluid className="p-4" style={{ overflowY: "auto", height: "calc(100vh - 56px)" }}>
+          <Button className="student-approval-back-btn" onClick={() => navigate('/student-grades-approval')}>
+                        Back
+                      </Button>
           {/* Semester Navigation */}
           <Row className="mb-4">
             <Col>
@@ -814,111 +836,315 @@ const [path,setPath]=useState(null);
                   </Button>
                 </Modal.Footer>
               </Modal>
+              {/* Rejection Reason Modal */}
+      <Modal 
+        show={showRejectModal} 
+        onHide={() => setShowRejectModal(false)}
+        centered
+      >
+        <Modal.Header closeButton>
+          <Modal.Title>Rejection Reason</Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          <Form.Group>
+            <Form.Label>Please provide a reason for rejection:</Form.Label>
+            <Form.Control
+              as="textarea"
+              rows={3}
+              value={rejectionReason}
+              onChange={(e) => setRejectionReason(e.target.value)}
+              required
+            />
+          </Form.Group>
+        </Modal.Body>
+        <Modal.Footer>
+          <Button variant="secondary" onClick={() => setShowRejectModal(false)}>
+            Cancel
+          </Button>
+          <Button 
+            variant="danger" 
+            onClick={confirmReject} 
+            disabled={!rejectionReason.trim()}
+          >
+            Confirm Rejection
+          </Button>
+        </Modal.Footer>
+      </Modal>
               {/* Grade Details Modal */}
+{/* Grade Details Modal */}
 <Modal 
   show={showGradeModal} 
   onHide={() => setShowGradeModal(false)}
-  size="lg"
+  size="xl"
   centered
+  className="grade-details-modal"
 >
-  <Modal.Header closeButton>
-    <Modal.Title>
-      Grade Details - {studentGrades?.studentName} (Semester {selectedSemester})
+  <Modal.Header closeButton className="bg-dark text-white">
+    <Modal.Title className="d-flex align-items-center">
+      <i className="bi bi-file-earmark-text-fill me-2"></i>
+      <div>
+        <h4 className="mb-0">Grade Details - {studentGrades?.studentName}</h4>
+        <small className="text-light">Semester {selectedSemester} | ID: {studentGrades?.studentId}</small>
+      </div>
     </Modal.Title>
   </Modal.Header>
-  <Modal.Body>
+  <Modal.Body className="p-4">
     {loading ? (
-      <div className="text-center">
-        <Spinner animation="border" />
-        <p>Loading grade details...</p>
+      <div className="text-center py-5">
+        <Spinner animation="border" variant="primary" />
+        <p className="mt-3">Loading grade details...</p>
       </div>
     ) : (
       <>
-        <Row className="mb-3">
-          <Col md={6}>
-            <h5>Student Information</h5>
-            <p><strong>ID:</strong> {studentGrades?.studentId}</p>
-            <p><strong>Name:</strong> {studentGrades?.studentName}</p>
-            <p><strong>Semester:</strong> {selectedSemester}</p>
-            <p><strong>GPA:</strong> {studentGrades?.gpa}</p>
-            <p><strong>Submitted On:</strong> {new Date(studentGrades?.submissionDate).toLocaleString()}</p>
-          </Col>
-          <Col md={6}>
-            <h5>Course Grades</h5>
-            <Table striped bordered size="sm">
-              <thead>
-                <tr>
-                  <th>Course Code</th>
-                  <th>Grade</th>
-                  <th>Status</th>
-                </tr>
-              </thead>
-              <tbody>
-                {studentGrades?.courses?.map((course, index) => (
-                  <tr 
-                    key={index} 
-                    className={course.isArrear ? 'table-warning' : ''}
-                  >
-                    <td>
-                      {course.courseCode}
-                      {course.isArrear && (
-                        <Badge bg="danger" className="ms-2">Arrear Attempt</Badge>
-                      )}
-                    </td>
-                    <td>
-                      {course.grade}
-                      
-                    </td>
-                    <td>
-                      {course.isArrear ? (
-                        <>
-                          <div>Re-enrolled</div>
-                          <div className="small text-muted">
-                            Originally from: {course.originalSemester}
-                          </div>
-                        </>
-                      ) : 'Regular'}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </Table>
-          </Col>
-        </Row>
-        
-        <Row>
-          <Col>
-            <h5>Marksheet</h5>
-            {marksheetUrl ? (
-              <div className="border rounded p-2">
-                <embed 
-                  src={marksheetUrl} 
-                  type="application/pdf" 
-                  width="100%" 
-                  height="400px"
-                />
-                <div className="mt-2">
-                  <Badge bg="info">
-                    Verified: {studentGrades?.verified ? 'Yes' : 'No'}
-                  </Badge>
+        {/* Student Information Card */}
+        <Card className="mb-4 shadow-sm border-0">
+          <Card.Body className="p-3">
+            <Row>
+              <Col md={6}>
+                <div className="d-flex align-items-center mb-3">
+                  <div className="bg-primary bg-opacity-10 p-2 rounded me-3">
+                    <i className="bi bi-person-badge text-primary fs-4"></i>
+                  </div>
+                  <div>
+                    <h6 className="mb-1 text-muted">Student Information</h6>
+                    <p className="mb-0 fw-bold">{studentGrades?.studentName}</p>
+                    <p className="mb-0 text-muted small">{studentGrades?.studentId}</p>
+                  </div>
                 </div>
-              </div>
+              </Col>
+              <Col md={6}>
+                <div className="d-flex align-items-center mb-3">
+                  <div className="bg-primary bg-opacity-10 p-2 rounded me-3">
+                    <i className="bi bi-calendar-check text-primary fs-4"></i>
+                  </div>
+                  <div>
+                    <h6 className="mb-1 text-muted">Submission Details</h6>
+                    <p className="mb-0">
+                      <span className="fw-bold">Submitted:</span> {new Date(studentGrades?.submissionDate).toLocaleString()}
+                    </p>
+                    {studentGrades?.verifiedAt && (
+                      <p className="mb-0">
+                        <span className="fw-bold">Verified:</span> {new Date(studentGrades?.verifiedAt).toLocaleString()}
+                      </p>
+                    )}
+                  </div>
+                </div>
+              </Col>
+            </Row>
+          </Card.Body>
+        </Card>
+
+        {/* Grades Summary Card */}
+        <Card className="mb-4 shadow-sm border-0">
+          <Card.Body className="p-3">
+            <Row>
+              <Col md={4} className="border-end">
+                <div className="text-center">
+                  <h6 className="text-muted mb-2">Semester GPA</h6>
+                  <div className="display-4 fw-bold text-primary">
+                    {studentGrades?.gpa || 'N/A'}
+                  </div>
+                  <small className="text-muted">Based on submitted grades</small>
+                </div>
+              </Col>
+              <Col md={4} className="border-end">
+                <div className="text-center">
+                  <h6 className="text-muted mb-2">Courses</h6>
+                  <div className="display-4 fw-bold text-success">
+                    {studentGrades?.courses?.length || 0}
+                  </div>
+                  <small className="text-muted">
+                    {studentGrades?.courses?.filter(c => c.isArrear).length || 0} arrears
+                  </small>
+                </div>
+              </Col>
+              <Col md={4}>
+                <div className="text-center">
+                  <h6 className="text-muted mb-2">Status</h6>
+                  <div>
+                    {studentGrades?.verified ? (
+                      <Badge bg="success" className="fs-5 px-3 py-2">
+                        <i className="bi bi-check-circle-fill me-2"></i>
+                        Approved
+                      </Badge>
+                    ) : studentGrades?.rejectedAt ? (
+                      <Badge bg="danger" className="fs-5 px-3 py-2">
+                        <i className="bi bi-x-circle-fill me-2"></i>
+                        Rejected
+                      </Badge>
+                    ) : (
+                      <Badge bg="warning" className="fs-5 px-3 py-2 text-dark">
+                        <i className="bi bi-hourglass-split me-2"></i>
+                        Pending
+                      </Badge>
+                    )}
+                  </div>
+                </div>
+              </Col>
+            </Row>
+          </Card.Body>
+        </Card>
+
+        {/* Course Grades Table */}
+        <Card className="mb-4 shadow-sm border-0">
+          <Card.Header className="bg-light">
+            <h5 className="mb-0">
+              <i className="bi bi-list-check me-2"></i>
+              Course Grades
+            </h5>
+          </Card.Header>
+          <Card.Body className="p-0">
+            <div className="table-responsive">
+              <Table hover className="mb-0">
+                <thead className="table-dark">
+                  <tr>
+                    <th className="text-center">#</th>
+                    <th>Course Code</th>
+                    <th>Grade</th>
+                    <th>Attempt type</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {studentGrades?.courses?.map((course, index) => (
+                    <tr key={index} className={course.isArrear ? 'table-warning' : ''}>
+                      <td className="text-center fw-bold">{index + 1}</td>
+                      <td>
+                        <div className="d-flex align-items-center">
+                          {course.courseCode}
+                          {course.isArrear && (
+                            <OverlayTrigger
+                              placement="right"
+                              overlay={
+                                <Tooltip>
+                                  Arrear from Semester {course.originalSemester}
+                                </Tooltip>
+                              }
+                            >
+                              <Badge bg="danger" className="ms-2">
+                                <i className="bi bi-exclamation-triangle-fill"></i>
+                              </Badge>
+                            </OverlayTrigger>
+                          )}
+                        </div>
+                      </td>
+                      <td>
+                        <Badge 
+                          bg={
+                            course.grade === 'RA' || course.grade === 'SA' || course.grade === 'W' 
+                              ? 'danger' 
+                              : course.grade === 'O' 
+                                ? 'success' 
+                                : 'primary'
+                          }
+                          className="fs-6"
+                        >
+                          {course.grade}
+                        </Badge>
+                      </td>
+                      <td>
+                        {course.isArrear ? (
+                          <span className="text-muted">
+                            <i className="bi bi-arrow-repeat me-1"></i>
+                            Re-enrolled
+                          </span>
+                        ) : (
+                          <span className="text-success">
+                            <i className="bi bi-check-circle-fill me-1"></i>
+                            Regular
+                          </span>
+                        )}
+                      </td>
+                      
+                    </tr>
+                  ))}
+                </tbody>
+              </Table>
+            </div>
+          </Card.Body>
+        </Card>
+
+        {/* Marksheet Section */}
+        <Card className="shadow-sm border-0">
+          <Card.Header className="bg-light">
+            <div className="d-flex justify-content-between align-items-center">
+              <h5 className="mb-0">
+                <i className="bi bi-file-earmark-pdf-fill me-2"></i>
+                Marksheet
+              </h5>
+              {studentGrades?.verifiedBy && (
+                <small className="text-muted">
+                  Verified by: {studentGrades?.verifiedBy}
+                </small>
+              )}
+            </div>
+          </Card.Header>
+          <Card.Body>
+            {marksheetUrl ? (
+              <>
+                <div className="border rounded overflow-hidden">
+                  <embed 
+                    src={marksheetUrl} 
+                    type="application/pdf" 
+                    width="100%" 
+                    height="500px"
+                  />
+                </div>
+                <div className="mt-3 d-flex justify-content-between align-items-center">
+                  <div>
+                    <Badge bg={studentGrades?.verified ? 'success' : 'warning'} className="me-2">
+                      {studentGrades?.verified ? 'Verified' : 'Unverified'}
+                    </Badge>
+                    {studentGrades?.verifiedAt && (
+                      <small className="text-muted">
+                        on {new Date(studentGrades?.verifiedAt).toLocaleDateString()}
+                      </small>
+                    )}
+                  </div>
+                  <Button 
+                    variant="outline-primary" 
+                    size="sm"
+                    onClick={() => window.open(marksheetUrl, '_blank')}
+                  >
+                    <i className="bi bi-box-arrow-up-right me-1"></i>
+                    Open in New Tab
+                  </Button>
+                </div>
+              </>
             ) : (
-              <Alert variant="warning">
-                <i className="bi bi-exclamation-triangle-fill me-2"></i>
-                No marksheet uploaded for this semester
+              <Alert variant="light" className="text-center py-4">
+                <i className="bi bi-file-earmark-excel-fill fs-1 text-danger mb-3"></i>
+                <h5>Marksheet Not Available</h5>
+                <p className="text-muted mb-0">
+                  No marksheet has been uploaded for this semester.
+                </p>
               </Alert>
             )}
-          </Col>
-        </Row>
+          </Card.Body>
+        </Card>
+
+        {/* Rejection Details (if rejected) */}
+        {studentGrades?.rejectedAt && (
+          <Alert variant="danger" className="mt-4">
+            <div className="d-flex align-items-center">
+              <i className="bi bi-x-circle-fill fs-4 me-3"></i>
+              <div>
+                <h5 className="mb-1">Grades Rejected</h5>
+                <p className="mb-1"><strong>Reason:</strong> {studentGrades?.rejectReason}</p>
+                <small className="text-muted">
+                  Rejected by {studentGrades?.rejectedBy} on {new Date(studentGrades?.rejectedAt).toLocaleString()}
+                </small>
+              </div>
+            </div>
+          </Alert>
+        )}
       </>
     )}
   </Modal.Body>
-  <Modal.Footer>
+  <Modal.Footer className="bg-light">
     <Button variant="secondary" onClick={() => setShowGradeModal(false)}>
-      Close
+      <i className="bi bi-x-lg me-1"></i> Close
     </Button>
-    {!studentGrades?.verified && (
+    {!studentGrades?.verified && !studentGrades?.rejectedAt && (
       <>
         <Button variant="danger" onClick={handleReject}>
           <i className="bi bi-x-circle-fill me-1"></i> Reject

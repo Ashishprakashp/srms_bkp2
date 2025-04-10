@@ -394,6 +394,9 @@ const EnrollmentDetails = () => {
       <div className="d-flex flex-grow-1">
         <StudentSideBar />
         <Container fluid className="p-4" style={{ overflowY: "auto", height: "calc(100vh - 56px)" }}>
+          <Button className="student-approval-back-btn" onClick={() => navigate('/student-enrollment')}>
+                        Back
+                      </Button>
           {/* Semester Navigation */}
           <Row className="mb-4">
             <Col>

@@ -30,7 +30,10 @@ const StudentGradesSchema = new mongoose.Schema({
       submissionDate: { type: Date, default: Date.now },
       verified: { type: Boolean, default: false },
       verifiedBy: { type: String },
-      verifiedAt: { type: Date }
+      verifiedAt: { type: Date },
+      rejectedBy: { type: String,default:''},
+      rejectedAt: {type: Date, default: Date.now},
+      rejectReason: {type: String,default:''}
     }),
     default: {}
   }
