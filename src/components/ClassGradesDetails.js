@@ -205,17 +205,35 @@ const [showRejectModal, setShowRejectModal] = useState(false);
       );
       
       const gradeData = gradesResponse.data;
-      
+      console.log(gradesResponse);
       if (!gradeData.courses || gradeData.courses.length === 0) {
         throw new Error('No grade data found for this semester');
       }
       
-      setStudentGrades({
-        ...gradeData,
-        studentName: student.name,
-        studentId: studentId,
-        semester: selectedSemester
-      });
+      // Filter to keep only the latest grade for each course
+    const uniqueCourses = gradeData.courses.reduce((acc, course) => {
+      // Find if this course already exists in our accumulator
+      const existingCourseIndex = acc.findIndex(c => c.courseCode === course.courseCode);
+      
+      if (existingCourseIndex === -1) {
+        // New course, add it
+        acc.push(course);
+      } else {
+        // Existing course, keep the one with the most recent grade submission
+        if (new Date(course.gradeSubmittedAt) > new Date(acc[existingCourseIndex].gradeSubmittedAt)) {
+          acc[existingCourseIndex] = course;
+        }
+      }
+      return acc;
+    }, []);
+
+    setStudentGrades({
+      ...gradeData,
+      courses: uniqueCourses, // Use the filtered unique courses
+      studentName: student.name,
+      studentId: studentId,
+      semester: selectedSemester
+    });
       
       // Generate marksheet URL if available
       if (gradeData.marksheetPath) {
@@ -954,7 +972,7 @@ const [showRejectModal, setShowRejectModal] = useState(false);
                     {studentGrades?.courses?.length || 0}
                   </div>
                   <small className="text-muted">
-                    {studentGrades?.courses?.filter(c => c.isArrear).length || 0} arrears
+                    {studentGrades?.courses?.filter(c => c.isArrear).length || 0} arrear attempts
                   </small>
                 </div>
               </Col>

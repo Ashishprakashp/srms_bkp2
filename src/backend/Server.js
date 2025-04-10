@@ -1238,7 +1238,7 @@ app.post("/student", uploadMiddleware, async (req, res) => {
     const status_update = await setFilled(register);
       console.log(status_update);
     
-    res.status(201).json({ message: "Student data saved/updated successfully!", student: existingStudent || student });
+    res.status(201).json({ message: "Student data saved/updated successfully!", student: existingStudent});
   } catch (error) {
     console.error("Error processing request:", error);
     res.status(400).json({
@@ -2382,24 +2382,41 @@ app.post('/submit-grades', upload.single('marksheet'), async (req, res) => {
 studentRecord.enrolledCourses = studentRecord.enrolledCourses.map(course => {
   // Convert Mongoose subdocument to plain object safely
   const courseData = course.toObject ? course.toObject() : { ...course };
-
   // Update regular course grades
   if (!courseData.isReEnrolled && parsedGrades[courseData.courseCode]) {
       return {
           ...courseData,
           grade: parsedGrades[courseData.courseCode],
-          gradeSubmittedAt: new Date()
+          gradeSubmittedAt: new Date(),
       };
   }
 
   // Update re-enrolled courses
   if (courseData.isReEnrolled && parsedClearedArrears.includes(courseData.courseCode)) {
       return {
-          ...courseData,
+          ...courseData,  
           grade: parsedGrades[courseData.courseCode] || courseData.grade,
           gradeSubmittedAt: new Date(),
           isReEnrolled: false
       };
+  }
+
+  if (courseData.isReEnrolled && parsedGrades[courseData.courseCode]) {
+    return {
+      ...courseData,
+      grade: parsedGrades[courseData.courseCode],
+      gradeSubmittedAt: new Date(),
+      isReEnrolled: true // Keep as re-enrolled
+    };
+  }
+
+  if (parsedNewArrears.includes(courseData.courseCode)) {
+    return {
+      ...courseData,
+      grade: parsedGrades[courseData.courseCode],
+      gradeSubmittedAt: new Date(),
+      isReEnrolled: true,
+    };
   }
 
   return courseData;
@@ -2467,25 +2484,45 @@ studentRecord.markModified('semesterSubmissions');
       verified: false
     });
 
-    // 10. Update cleared arrears
-    const currentSession = `${semesterNumber} ${academicSession}`;
+    // 10. Update cleared arrears (MODIFIED)
+const currentSession = `${semesterNumber} ${academicSession}`;
 studentAcc.arrears = studentAcc.arrears.map(arrear => {
-  if (arrear && parsedClearedArrears.includes(arrear.subject_code)) {
-    // Add final attempt and mark as closed
-    const clearedGrade = parsedGrades[arrear.subject_code];
+  if (!arrear) return arrear;
+  
+  // Only process if this is a cleared arrear
+  if (parsedClearedArrears.includes(arrear.subject_code)) {
+    // Check if there's at least one attempt and the last attempt matches current session
+    if (arrear.attempts && arrear.attempts.length > 0) {
+      const lastAttempt = arrear.attempts[arrear.attempts.length - 1];
+      
+      if (lastAttempt === currentSession) {
+        // If only one attempt exists, remove the entire arrear
+        if (arrear.attempts.length === 1) {
+          return null; // Will be filtered out
+        } 
+        // If multiple attempts exist, remove the duplicate last attempt
+        else {
+          arrear.attempts.pop();
+        }
+      }
+    }
     
-    return {
-      ...arrear,
-      attempts: [...(arrear.attempts || []), currentSession],
-      status: "closed",
-      cleared_at: currentSession,
-      cleared_grade: clearedGrade || 'N/A',
-      // Preserve existing cleared_at if already set
-      cleared_at: arrear.cleared_at || currentSession
-    };
+    // Only proceed with closing if we're not removing the arrear
+    if (arrear) {
+      const clearedGrade = parsedGrades[arrear.subject_code];
+      
+      return {
+        ...arrear,
+        attempts: [...(arrear.attempts || []), currentSession],
+        status: "closed",
+        cleared_at: arrear.cleared_at || currentSession,
+        cleared_grade: clearedGrade || 'N/A'
+      };
+    }
   }
   return arrear;
-});
+}).filter(arrear => arrear !== null); // Remove null entries
+
 studentAcc.markModified('arrears');
 
     // 11. Update student status
@@ -2546,9 +2583,13 @@ app.get('/student-grades/:studentId/:semester/:sess', async (req, res) => {
     }
 
     // Filter enrolled courses for the specified semester with non-null grades
-    const coursesWithGrades = grades.enrolledCourses.filter(course => 
-      course.semester.includes(semester) && course.grade !== null && course.session === sess
-    );
+    const coursesWithGrades = grades.enrolledCourses.filter(course => {
+      // Extract semester number (e.g., "1" from "1 NOV 2023")
+      const courseSemesterNumber = course.semester.split(' ')[0];
+      
+      return course.session.includes(sess) && 
+             course.grade !== null;
+    });
 
     // Prepare response
     const response = {

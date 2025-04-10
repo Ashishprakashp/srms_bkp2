@@ -259,7 +259,8 @@ const GradeForm = () => {
           console.log("subjects response: ",subjectsResponse);
           const arrearsResponse = await axios.get(`http://localhost:5000/get-arrears/${studentId}`);
           arrearsResponse.data = arrearsResponse.data.filter(
-            arrear => arrear.status === 'active'
+            arrear => arrear.status === 'active'|| 
+            (arrear.status === 'closed' && arrear.cleared_at === response.data.can_fill_grades)
           );
           const arrearsWithSemester = arrearsResponse.data
   .filter(arrear => arrear.semester !== semesterNumber) // Skip if semester matches

@@ -6,7 +6,7 @@ import SideBar from './SideBar.js';
 import { useNavigate } from 'react-router-dom';
 import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
-import 'jspdf-autotable';
+import autoTable from 'jspdf-autotable';
 
 const StudentReport = () => {
   const pdfRef = useRef();
@@ -50,7 +50,24 @@ const StudentReport = () => {
 
   const groupCoursesBySemester = (courses) => {
     if (!courses) return {};
-    return courses.reduce((acc, course) => {
+    
+    // First, filter to keep only the most recent attempt of each course
+    const uniqueCourses = courses.reduce((acc, course) => {
+      const existingCourse = acc.find(c => c.courseCode === course.courseCode);
+      
+      if (!existingCourse) {
+        acc.push(course);
+      } else if (new Date(course.gradeSubmittedAt) > new Date(existingCourse.gradeSubmittedAt)) {
+        // Replace with the more recent attempt
+        acc = acc.filter(c => c.courseCode !== course.courseCode);
+        acc.push(course);
+      }
+      
+      return acc;
+    }, []);
+    
+    // Then group by semester
+    return uniqueCourses.reduce((acc, course) => {
       const semester = course.semester;
       if (!acc[semester]) acc[semester] = [];
       acc[semester].push(course);
@@ -133,61 +150,7 @@ const StudentReport = () => {
     }, {}) || {};
   };
 
-  const handleDownloadPDF = async () => {
-    const input = pdfRef.current;
-    const pdf = new jsPDF('p', 'mm', 'a4');
-    const pageHeight = pdf.internal.pageSize.getHeight();
-    
-    // Add temporary styling for PDF
-    const style = document.createElement('style');
-    style.textContent = `
-      .pdf-content {
-        background-color: #f8f9fa !important;
-        padding: 20px;
-      }
-      .card {
-        border: 1px solid #dee2e6 !important;
-        margin-bottom: 15px;
-        background: white !important;
-      }
-      .table {
-        background: white !important;
-        border: 1px solid #dee2e6 !important;
-      }
-      th {
-        background-color: #e9ecef !important;
-      }
-      h4, h5 {
-        color: #2c3e50 !important;
-      }
-    `;
-    document.head.appendChild(style);
 
-    const canvas = await html2canvas(input, {
-      scale: 2,
-      useCORS: true,
-      windowHeight: input.scrollHeight,
-      backgroundColor: '#f8f9fa'
-    });
-
-    document.head.removeChild(style);
-
-    const imgData = canvas.toDataURL('image/png');
-    const imgWidth = pdf.internal.pageSize.getWidth();
-    let imgHeight = (canvas.height * imgWidth) / canvas.width;
-    let position = 0;
-
-    pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
-    position -= pageHeight;
-
-    while (position > -imgHeight) {
-      pdf.addPage();
-      pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
-      position -= pageHeight;
-    }
-
-    pdf.save(`${studentData.personalInformation.register}-report.pdf`);
-  };
 
   const renderSemesterTables = () => {
     if (!studentData?.enrolledCourses || !studentData?.arrears) return null;
@@ -276,6 +239,192 @@ const StudentReport = () => {
     });
   };
 
+  const handleDownloadPDF = async () => {
+    console.log(studentData);
+    if (!studentData) return;
+  
+    // Wait briefly to ensure all data is rendered
+    await new Promise(resolve => setTimeout(resolve, 100));
+  
+    // Create new PDF document in portrait orientation
+    const doc = new jsPDF({
+      orientation: 'portrait',
+      unit: 'mm',
+      format: 'a4'
+    });
+  
+    // Add logo
+    const logoUrl = '/AnnaUniLogo.png';
+    doc.addImage(logoUrl, 'PNG', 15, 5, 20, 20);
+  
+    // Header text
+    doc.setFontSize(14);
+    doc.setFont('helvetica', 'bold');
+    doc.text('DEPARTMENT OF INFORMATION SCIENCE AND TECHNOLOGY', 115, 15, { align: 'center' });
+    
+    doc.setFontSize(12);
+    doc.setFont('helvetica', 'normal');
+    doc.text('COLLEGE OF ENGINEERING GUIDY CAMPUS', 115, 20, { align: 'center' });
+    
+    doc.setFontSize(10);
+    doc.text('ANNA UNIVERSITY, CHENNAI – 600 025', 115, 25, { align: 'center' });
+    doc.setLineWidth(0.5);
+    doc.line(20, 28, 190, 28);
+  
+    // Student Information Section
+    doc.setFontSize(12);
+    doc.setFont('helvetica', 'bold');
+    doc.text('STUDENT ACADEMIC REPORT', 105, 35, { align: 'center' });
+  
+    // Define consistent table styles
+    const tableStyles = {
+      theme: 'grid',
+      headStyles: {
+        fillColor: [255, 255, 255],
+        textColor: [0, 0, 0],
+        fontStyle: 'bold',
+        lineColor: [0, 0, 0],
+        lineWidth: 0.3
+      },
+      bodyStyles: {
+        fillColor: [255, 255, 255],
+        textColor: [0, 0, 0],
+        lineColor: [0, 0, 0],
+        lineWidth: 0.3
+      },
+      styles: {
+        fontSize: 10,
+        cellPadding: 3,
+        halign: 'center',
+        lineColor: [0, 0, 0],
+        lineWidth: 0.3
+      },
+      margin: { left: 20, right: 20 }
+    };
+  
+    // Personal Information Table
+    autoTable(doc, {
+      startY: 45,
+      head: [['Name', 'Reg.No', 'Branch', 'Class', 'Batch', 'Gender']],
+      body: [
+        [
+          studentData.personalInformation?.name || '-',
+          studentData.personalInformation?.register || '-',
+          studentData.branch || '-',
+          studentData.class || '-',
+          studentData.batch || '-',
+          studentData.personalInformation?.sex || '-'
+        ]
+      ],
+      ...tableStyles
+    });
+  
+    // Academic Summary Table
+    autoTable(doc, {
+      startY: doc.lastAutoTable.finalY + 10,
+      head: [['CGPA', 'Total Credits Earned', 'Total Possible Credits', 'Current Semester']],
+      body: [
+        [
+          calculateCGPA().toFixed(2),
+          calculateTotalCredits(),
+          Object.values(studentData.semesterSubmissions || {}).reduce(
+            (sum, sem) => sum + (sem.totalCredits || 0), 0
+          ),
+          studentData.enrolled || '-'
+        ]
+      ],
+      ...tableStyles
+    });
+  
+    // Semester-wise Performance
+    const semesterGroups = groupCoursesBySemester(studentData.enrolledCourses || []);
+    const arrearsBySemester = groupArrearsBySemester(studentData.arrears || []);
+  
+    let currentY = doc.lastAutoTable.finalY + 15; // Initial space
+  
+    Object.entries(semesterGroups).forEach(([semester, courses], index) => {
+      const semesterKey = semester.split(' ')[0];
+      const semesterData = studentData.semesterSubmissions?.[semesterKey];
+      const semesterArrears = arrearsBySemester[semester] || [];
+      
+      // Add space between semesters (except first one)
+      if (index > 0) {
+        currentY += 10;
+      }
+  
+      // Semester heading
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(12);
+      doc.text(`Semester ${semesterKey}`, 105, currentY, { align: 'center' });
+      
+      // Semester Header Table
+      autoTable(doc, {
+        startY: currentY + 8,
+        head: [['Semester', 'GPA', 'Credits Earned', 'Total Credits']],
+        body: [
+          [
+            semester.split(' ')[1],
+            semesterData ? ((semesterData.scoredCredits/semesterData.totalCredits)*10).toFixed(2) : '-',
+            semesterData?.scoredCredits || '0',
+            semesterData?.totalCredits || '0'
+          ]
+        ],
+        ...tableStyles
+      });
+  
+      // Course Grades Table
+      autoTable(doc, {
+        startY: doc.lastAutoTable.finalY + 8,
+        head: [['Course Code', 'Grade', 'Status']],
+        body: courses.map(course => [
+          course.courseCode,
+          course.grade || '-',
+          course.gradeConfirmed ? 'Confirmed' : 'Pending'
+        ]),
+        ...tableStyles,
+        styles: {
+          ...tableStyles.styles,
+          fontSize: 9
+        }
+      });
+  
+      // Arrears History Section (only if arrears exist)
+      if (semesterArrears.length > 0) {
+        // Add "Arrear History" title
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(11);
+        doc.text('Arrear History', 20, doc.lastAutoTable.finalY + 8);
+        
+        // Arrears History Table
+        autoTable(doc, {
+          startY: doc.lastAutoTable.finalY + 12, // Space after title
+          head: [['Course Code', 'Status', 'Attempts', 'Cleared Grade', 'Cleared Session']],
+          body: semesterArrears.map(arrear => [
+            arrear.subject_code,
+            arrear.status,
+            arrear.attempts?.join(', ') || 'No attempts',
+            arrear.cleared_grade || '-',
+            arrear.cleared_at || '-'
+          ]),
+          ...tableStyles,
+          styles: {
+            ...tableStyles.styles,
+            fontSize: 9
+          }
+        });
+      }
+  
+      // Update currentY for next semester
+      currentY = doc.lastAutoTable.finalY + 15;
+    });
+  
+    // Footer
+    doc.setFontSize(10);
+    doc.text('© Anna University - Department of IST', 105, doc.internal.pageSize.height - 15, { align: 'center' });
+  
+    // Save the PDF
+    doc.save(`${studentData.personalInformation?.register || 'student'}_academic_report.pdf`);
+  };
   return (
     <>
       <TitleBar />
