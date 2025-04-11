@@ -202,6 +202,7 @@ const EnrollmentDetails = () => {
           await axios.post("http://localhost:5000/admin/set-enrollment", {
             branch,
             regulation,
+            _class,
             from_year,
             to_year,
             sem_no: selectedSemester,
@@ -227,6 +228,7 @@ const EnrollmentDetails = () => {
           await axios.post("http://localhost:5000/admin/set-enrollment", {
             branch,
             regulation,
+            _class,
             from_year,
             to_year,
             sem_no: selectedSemester,

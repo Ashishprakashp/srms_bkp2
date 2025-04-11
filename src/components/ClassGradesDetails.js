@@ -35,6 +35,7 @@ const [year_,setYear]=useState('');
 const [path,setPath]=useState(null);
 const [showRejectModal, setShowRejectModal] = useState(false);
   const [rejectionReason, setRejectionReason] = useState('');
+  const [studentsLoaded, setStudentsLoaded] = useState(false);
 
   // Fetch semester numbers from the database
   useEffect(() => {
@@ -82,6 +83,16 @@ const [showRejectModal, setShowRejectModal] = useState(false);
             _class,
             sem_no: selectedSemester,
             grades:true,
+          },
+        });
+        const response2 = await axios.get("http://localhost:5000/get-enrollment-data", {
+          params: {
+            branch,
+            regulation,
+            from_year,
+            to_year,
+            _class,
+            sem_no: selectedSemester,
           },
         });
         console.log(response);
@@ -150,27 +161,35 @@ const [showRejectModal, setShowRejectModal] = useState(false);
             student.to_year === to_year &&
             student._class === _class
         );
+        filteredStudents.forEach(student => {
+          console.log(`Student ID: ${student.studentId}, Class: ${student._class}`);
+        });
         setStudents(filteredStudents);
+        setStudentsLoaded(true);
         setLoading(false);
       } catch (error) {
         console.error("Error fetching students:", error);
         setLoading(false);
+        setStudentsLoaded(true);
       }
     };
 
     fetchStudents();
   }, [branch, regulation, from_year, to_year, _class]);
 
-
   useEffect(() => {
-    if (selectedSemester) {
+    if (selectedSemester && studentsLoaded) { // Only fetch when students are loaded
       fetchApprovedStudents();
     }
-  }, [selectedSemester]); // Re-fetch when semester changes
+  }, [selectedSemester, studentsLoaded]); // Add studentsLoaded to dependencies
+  
+  
   console.log("Session data: "+sessionData[Number(selectedSemester)]);
+  console.log("session before fetch: "+month_+" "+year_);
   const fetchApprovedStudents = async () => {
     try {
       setApprovedLoading(true);
+      
       const response = await axios.get('http://localhost:5000/approved-students', {
         params: {
           branch,
@@ -180,7 +199,16 @@ const [showRejectModal, setShowRejectModal] = useState(false);
         }
       });
       console.log(response.data);
-      setApprovedStudents(response.data);
+      const filteredApprovedStudents = response.data.filter(approvedStudent => {
+        // Convert both IDs to String for consistent comparison
+        const approvedId = approvedStudent.studentId.toString().trim();
+        
+        return students.some(student => 
+          student.studentId.toString().trim() === approvedId
+        );
+      });
+      console.log("Filteredapproved: "+filteredApprovedStudents);
+      setApprovedStudents(filteredApprovedStudents);
     } catch (error) {
       console.error('Error fetching approved students:', error);
     } finally {
@@ -200,6 +228,7 @@ const [showRejectModal, setShowRejectModal] = useState(false);
       console.log("Session: "+sessionData[Number(selectedSemester)].month+ " "+ sessionData[Number(selectedSemester)].year);
       // Fetch grade details for the selected semester
       const sess = sessionData[Number(selectedSemester)].month+ " "+ sessionData[Number(selectedSemester)].year;
+      console.log("Seesion here: "+sess);
       const gradesResponse = await axios.get(
         `http://localhost:5000/student-grades/${studentId}/${selectedSemester}/${sess}`
       );
@@ -352,6 +381,7 @@ const [showRejectModal, setShowRejectModal] = useState(false);
           const res1 = await axios.post("http://localhost:5000/admin/set-enrollment", {
             branch,
             regulation,
+            _class,
             from_year,
             to_year,
             sem_no: selectedSemester,
@@ -377,6 +407,7 @@ const [showRejectModal, setShowRejectModal] = useState(false);
           const res2 = await axios.post("http://localhost:5000/admin/set-enrollment", {
             branch,
             regulation,
+            _class,
             from_year,
             to_year,
             sem_no: selectedSemester,
@@ -897,7 +928,7 @@ const [showRejectModal, setShowRejectModal] = useState(false);
   centered
   className="grade-details-modal"
 >
-  <Modal.Header closeButton className="bg-dark text-white">
+  <Modal.Header className="bg-dark text-white">
     <Modal.Title className="d-flex align-items-center">
       <i className="bi bi-file-earmark-text-fill me-2"></i>
       <div>
@@ -905,6 +936,7 @@ const [showRejectModal, setShowRejectModal] = useState(false);
         <small className="text-light">Semester {selectedSemester} | ID: {studentGrades?.studentId}</small>
       </div>
     </Modal.Title>
+    <button type="button" className="btn-close btn-close-white" aria-label="Close" onClick={() => setShowGradeModal(false)}></button>
   </Modal.Header>
   <Modal.Body className="p-4">
     {loading ? (
@@ -971,9 +1003,9 @@ const [showRejectModal, setShowRejectModal] = useState(false);
                   <div className="display-4 fw-bold text-success">
                     {studentGrades?.courses?.length || 0}
                   </div>
-                  <small className="text-muted">
+                  {/* <small className="text-muted">
                     {studentGrades?.courses?.filter(c => c.isArrear).length || 0} arrear attempts
-                  </small>
+                  </small> */}
                 </div>
               </Col>
               <Col md={4}>

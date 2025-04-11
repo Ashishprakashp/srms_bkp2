@@ -411,6 +411,45 @@ app.post('/add-regulation/:courseId', async (req, res) => {
   }
 });
 
+app.post('/remove-regulation/:courseId', async (req, res) => {
+  try {
+    const { year } = req.body;
+    const courseId = req.params.courseId;
+
+    console.log("Removing regulation from course ID:", courseId);
+
+    // Find the course by ID
+    const course = await Course.findById(courseId).exec();
+
+    // Check if the course exists
+    if (!course) {
+      console.log("Course not found");
+      return res.status(404).json({ error: "Course not found" });
+    }
+
+    // Find the regulation index
+    const regulationIndex = course.regulations.findIndex(
+      regulation => regulation.year === year
+    );
+
+    // Check if regulation exists
+    if (regulationIndex === -1) {
+      console.log("Regulation not found");
+      return res.status(404).json({ error: "Regulation not found" });
+    }
+
+    // Remove the regulation
+    course.regulations.splice(regulationIndex, 1);
+    await course.save();
+
+    console.log("Regulation removed successfully:", course.regulations);
+    res.json(course.regulations);
+  } catch (error) {
+    console.error('Error removing regulation:', error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
 app.post('/admin-dashboard/faculty-mgmt/add', async (req, res) => {
   try {
     const faculties = req.body.users;
@@ -1446,6 +1485,7 @@ app.get("/get-enrollment-data", async (req, res) => {
       // Find the enrollment record matching the criteria
       const enrollment = await GradesEnrollment.findOne({
         branch,
+        _class,
         regulation,
         batch: `${from_year}-${to_year}`,
         semester: sem_no,
@@ -1470,6 +1510,7 @@ app.get("/get-enrollment-data", async (req, res) => {
       // Find the enrollment record matching the criteria
       const enrollment = await Enrollment.findOne({
         branch,
+        _class,
         regulation,
         batch: `${from_year}-${to_year}`,
         semester: sem_no,
@@ -1494,12 +1535,12 @@ app.get("/get-enrollment-data", async (req, res) => {
 });
 
 app.post('/admin/set-enrollment', async (req, res) => {
-  const { branch, regulation, from_year, to_year, sem_no,session ,initiated_by,status,grades} = req.body;
+  const { branch, regulation, from_year, to_year, sem_no,session ,initiated_by,status,grades,_class} = req.body;
 
   if(grades){
     try {
       const gradesenrollment = await GradesEnrollment.findOneAndUpdate(
-          { branch, regulation, batch:from_year+"-"+to_year, semester: sem_no},
+          { branch, regulation, _class , batch:from_year+"-"+to_year, semester: sem_no},
           { $set: {session:session , status: status, initiated_by: initiated_by, initiated_time: Date.now() } },
           { new: true, upsert: true }
       );
@@ -1512,7 +1553,7 @@ app.post('/admin/set-enrollment', async (req, res) => {
   }else{
     try {
       const enrollment = await Enrollment.findOneAndUpdate(
-          { branch, regulation, batch:from_year+"-"+to_year, semester: sem_no},
+          { branch, regulation,_class, batch:from_year+"-"+to_year, semester: sem_no},
           { $set: {session:session , status: status, initiated_by: initiated_by, initiated_time: Date.now() } },
           { new: true, upsert: true }
       );
@@ -2357,9 +2398,15 @@ app.post('/submit-grades', upload.single('marksheet'), async (req, res) => {
     
         if (existingArrear) {
           // Add new attempt to existing active arrear
-          if (!existingArrear.attempts) existingArrear.attempts = [];
-          existingArrear.attempts = [...(existingArrear.attempts || []), currentSession];
-          existingArrear.markModified('arrears'); // Mark the entire arrears array as modified
+          const lastAttempt = existingArrear.attempts?.length > 0 
+        ? existingArrear.attempts[existingArrear.attempts.length - 1] 
+        : null;
+      
+      if (lastAttempt !== currentSession) {
+        if (!existingArrear.attempts) existingArrear.attempts = [];
+        existingArrear.attempts = [...existingArrear.attempts, currentSession];
+        existingArrear.markModified('attempts');
+      }
         } else {
           // Create new arrear entry with initial attempt
           const subject = studentRecord.enrolledCourses.find(c => c.courseCode === subjectCode);
@@ -2519,9 +2566,16 @@ studentAcc.arrears = studentAcc.arrears.map(arrear => {
         cleared_grade: clearedGrade || 'N/A'
       };
     }
-  }
-  return arrear;
-}).filter(arrear => arrear !== null); // Remove null entries
+  }else if (arrear.status === "active" && 
+    arrear.attempts && 
+    !arrear.attempts.includes(currentSession)) {
+return {
+...arrear,
+attempts: [...arrear.attempts, currentSession]
+};
+}
+return arrear;
+}).filter(arrear => arrear !== null); 
 
 studentAcc.markModified('arrears');
 
@@ -2898,8 +2952,12 @@ app.post('/query-students', async (req, res) => {
           
           if (operator === 'hasSubject') {
             arrearsConditions.push({
-              'arrears.subject_code': val,
-              'arrears.status': 'active'
+              'arrears': {
+                $elemMatch: {
+                  'subject_code': val,
+                  'status': 'active'
+                }
+              }
             });
           } else {
             const numericValue = parseInt(val);
@@ -2907,28 +2965,28 @@ app.post('/query-students', async (req, res) => {
               const comparison = operator === 'equals' ? '$eq' : 
                               operator === 'greaterThan' ? '$gt' : '$lt';
               
-              arrearsConditions.push({
-                $expr: {
-                  [comparison]: [
-                    {
-                      $cond: {
-                        if: { $isArray: "$arrears" },
-                        then: {
-                          $size: {
-                            $filter: {
-                              input: "$arrears",
-                              as: "arr",
-                              cond: { $eq: ["$$arr.status", "active"] }
-                            }
-                          }
-                        },
-                        else: 0
-                      }
-                    },
-                    numericValue
-                  ]
-                }
-              });
+                              arrearsConditions.push({
+                                $expr: {
+                                  [comparison]: [
+                                    {
+                                      $size: {
+                                        $filter: {
+                                          input: {
+                                            $cond: [
+                                              { $isArray: "$arrears" },
+                                              "$arrears",
+                                              []
+                                            ]
+                                          },
+                                          as: "arr",
+                                          cond: { $eq: ["$$arr.status", "active"] }
+                                        }
+                                      }
+                                    },
+                                    numericValue
+                                  ]
+                                }
+                              });
             }
           }
         }
@@ -2951,6 +3009,7 @@ app.post('/query-students', async (req, res) => {
     // 4. Build complete pipeline
     const pipeline = [
       // Initial StudentAcc match
+      
       { 
         $match: {
           ...(accsConditions.length > 0 || arrearsConditions.length > 0 ? { 

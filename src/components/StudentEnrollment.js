@@ -123,17 +123,17 @@ const StudentEnrollment = () => {
                   <Card className="student-approval-card">
                     <Card.Body>
                       <Card.Title>
-                        {group.branch} - {group.regulation}
+                      {group.branch} - ({group.from_year} - {group.to_year})
                       </Card.Title>
-                      <Card.Subtitle className="student-approval-card-subtitle">
+                      <Card.Subtitle className="student-approval-card-subtitle fs-5">
                         Batch: {group.from_year} - {group.to_year} <br />
-                        Class: {group._class}
+                        Class: {group._class}<br/>
+                        Total Students: {group.students.length}
                       </Card.Subtitle>
-                      <Card.Text>Total Students: {group.students.length}</Card.Text>
                       {/* <Button variant="primary" onClick={() => handleEnable(group)}>
                         Enable Enrollment
                       </Button> */}
-                      <Button variant="secondary" className="ms-4" onClick={() => handleViewClassDetails(group)}>
+                      <Button variant="primary" className="float-end" onClick={() => handleViewClassDetails(group)}>
                         View Details
                       </Button>
                     </Card.Body>

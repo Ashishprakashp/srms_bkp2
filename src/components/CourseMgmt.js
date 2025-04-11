@@ -23,6 +23,10 @@ const CourseMgmt = () => {
   const [newRegulationYear, setnewRegulationYear] = useState('');
   const [newRegulationDescription, setNewRegulationDescription] = useState('');
   const [showReg,setShowReg] = useState(false);
+  const [regulationToDelete, setRegulationToDelete] = useState(null);
+  const [showRegulationConfirmation, setShowRegulationConfirmation] = useState(false);
+  const [regulationPassword, setRegulationPassword] = useState('');
+
 
   // Define handleClose and handleShow
   const handleClose = () => {
@@ -191,6 +195,41 @@ const handleCourseClick = async (course) => {
     }
   };
 
+  const handleRemoveRegulation = async () => {
+    try {
+      const response = await axios.post(
+        `http://localhost:5000/remove-regulation/${selectedCourse._id}`,
+        {
+          year: regulationToDelete.year,
+          password: regulationPassword
+        },
+        {
+          withCredentials: true,
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        }
+      );
+  
+      if (response.data) {
+        // Refresh regulations list
+        const updatedResponse = await axios.get(
+          `http://localhost:5000/fetch-regulations/${selectedCourse._id}`,
+          { withCredentials: true }
+        );
+        setRegulations(updatedResponse.data);
+        alert('Regulation removed successfully!');
+      }
+    } catch (error) {
+      alert(error.response?.data?.error || 'Failed to remove regulation');
+    } finally {
+      setShowRegulationConfirmation(false);
+      setRegulationPassword('');
+      setRegulationToDelete(null);
+    }
+  };
+  
+
   if (loading) {
     return (
       <div className="d-flex justify-content-center align-items-center vh-100">
@@ -339,17 +378,30 @@ const handleCourseClick = async (course) => {
     ) : (
       <div className="regulation-list">
         {regulations.map((regulation, index) => (
-          <Button
-            key={index}
-            variant="outline-primary"
-            className="d-block w-100 mb-2 text-start"
-            onClick={() => {
-              navigate(`/admin-dashboard/course-mgmt/course-spec/${selectedCourse._id}/${regulation.year}`);
-            }}
-          >
-            {regulation.year}
-          </Button>
-        ))}
+    <div key={index} className="d-flex align-items-center mb-2">
+      <Button
+        variant="outline-primary"
+        className="flex-grow-1 text-start"
+        onClick={() => {
+          navigate(`/admin-dashboard/course-mgmt/course-spec/${selectedCourse._id}/${regulation.year}`);
+        }}
+      >
+        {regulation.year}
+      </Button>
+      <Button
+        variant="danger"
+        size="sm"
+        className="ms-2"
+        onClick={(e) => {
+          e.stopPropagation();
+          setRegulationToDelete(regulation);
+          setShowRegulationConfirmation(true);
+        }}
+      >
+        Remove
+      </Button>
+    </div>
+  ))}
         <Button
           variant="primary"
           className="d-block w-100 mt-3"
@@ -393,6 +445,36 @@ const handleCourseClick = async (course) => {
     </Button>
   </Modal.Footer>
 </Modal>
+<Modal show={showRegulationConfirmation} onHide={() => setShowRegulationConfirmation(false)} centered>
+    <Modal.Header closeButton>
+      <Modal.Title>Confirm Regulation Deletion</Modal.Title>
+    </Modal.Header>
+    <Modal.Body>
+      <Form>
+        <Form.Group controlId="regulationPassword">
+          <Form.Label>
+            Are you sure you want to delete the {regulationToDelete?.year} regulation? 
+            This will delete all associated data. Confirm by entering your password:
+          </Form.Label>
+          <Form.Control
+            type="password"
+            placeholder="Password"
+            value={regulationPassword}
+            onChange={(e) => setRegulationPassword(e.target.value)}
+            required
+          />
+        </Form.Group>
+      </Form>
+    </Modal.Body>
+    <Modal.Footer>
+      <Button variant="secondary" onClick={() => setShowRegulationConfirmation(false)}>
+        Cancel
+      </Button>
+      <Button variant="danger" onClick={handleRemoveRegulation}>
+        Delete Regulation
+      </Button>
+    </Modal.Footer>
+  </Modal>
     </>
   );
 };

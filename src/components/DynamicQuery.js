@@ -402,22 +402,28 @@ const DynamicQuery = () => {
           const comparison = filter.operator === 'equals' ? '$eq' : 
                             filter.operator === 'greaterThan' ? '$gt' : '$lt';
           
-          return {
-            $expr: {
-              [comparison]: [
-                {
-                  $size: {
-                    $filter: {
-                      input: '$arrears',
-                      as: 'arr',
-                      cond: { $eq: ['$$arr.status', 'active'] }
-                    }
-                  }
-                },
-                numericValue
+                            return {
+  $expr: {
+    [comparison]: [
+      {
+        $size: {
+          $filter: {
+            input: {
+              $cond: [ // ✅ Ensure input is always an array
+                { $isArray: "$arrears" },
+                "$arrears",
+                []
               ]
-            }
-          };
+            },
+            as: 'arr',
+            cond: { $eq: ['$$arr.status', 'active'] }
+          }
+        }
+      },
+      numericValue
+    ]
+  }
+};
         }
       }
 
