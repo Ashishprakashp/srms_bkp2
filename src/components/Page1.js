@@ -171,6 +171,7 @@
 
           {/* Right Column - Photo Upload */}
           <Col md={4} className="d-flex justify-content-end">
+          {console.log('Passport Photo Path:', formData.personalInformation.passportPhoto)}
             <PassportPhotoUpload
               onImageUpload={handleImageUpload} // Pass the handler to update formData
               uploadedImage={`http://localhost:5000/${formData.personalInformation.passportPhoto}`} // Pass the stored image

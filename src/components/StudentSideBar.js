@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Nav, Image, Collapse } from 'react-bootstrap';
-import pl_image from './res/login.jpg';
+import pl_image from './res/profile.jpg';
 import "bootstrap-icons/font/bootstrap-icons.css";
 
 const StudentSideBar = ({ onLogoutClick }) => {

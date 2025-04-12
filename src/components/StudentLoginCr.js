@@ -259,22 +259,36 @@ export default function StudentLoginCr() {
                             <Button className="float-end px-4" onClick={() => navigate('/admin-dashboard/student-mgmt')}>Back</Button>
                             <h1 className="mb-4">Student Management</h1>
                             <Row xs={1} sm={2} md={2} className="g-4">
-                                {[
-                                    ['Manual Login Creation', 'card-1', () => setShowCreateLogin(true)],
-                                    ['Auto Login Creation', 'card-2', () => setShowAutoLoginCreation(true)],
-                                ].map(([title, cardClass, onClick], index) => (
-                                    <Col key={index}>
-                                        <Card className={`card-bg ${cardClass}`} onClick={onClick} style={{ cursor: 'pointer' }}>
-                                            <Card.Body>
-                                                <Card.Title>{title}</Card.Title>
-                                                <Card.Text>
-                                                    {`This is the content of ${title}`}
-                                                </Card.Text>
-                                            </Card.Body>
-                                        </Card>
-                                    </Col>
-                                ))}
-                            </Row>
+  {[
+    [
+      'Manual Login Creation', 
+      'card-1', 
+      () => setShowCreateLogin(true),
+      'Create login credentials manually by specifying details'
+    ],
+    [
+      'Auto Login Creation', 
+      'card-2', 
+      () => setShowAutoLoginCreation(true),
+      'Automatically generate secure login credentials by uploading xlsx file'
+    ]
+  ].map(([title, cardClass, onClick, description], index) => (
+    <Col key={index}>
+      <Card 
+        className={`card-bg ${cardClass}`} 
+        onClick={onClick} 
+        style={{ cursor: 'pointer' }}
+      >
+        <Card.Body>
+          <Card.Title>{title}</Card.Title>
+          <Card.Text>
+            {description}
+          </Card.Text>
+        </Card.Body>
+      </Card>
+    </Col>
+  ))}
+</Row>
                         </>
                     ) : showCreateLogin ? (
                         // Manual Login Creation UI

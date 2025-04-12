@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Nav, Image, Collapse } from 'react-bootstrap';
-import pl_image from './res/login.jpg';
+import pl_image from './res/profile.jpg';
 import "bootstrap-icons/font/bootstrap-icons.css";
 
 const SideBar = ({ onLogoutClick }) => {
@@ -88,7 +88,10 @@ const SideBar = ({ onLogoutClick }) => {
                                     className="text-white"
                                     style={{ cursor: 'pointer' }}
                                 >
+                                    <Nav.Link href="/admin-dashboard/faculty-mgmt" className="text-white text-center">
                                     <i className="bi bi-person-vcard" style={{ fontSize: '1.75rem' }}></i>
+                                    </Nav.Link>
+                                    
                                 </div>
                             </div>
                         ) : (
@@ -128,7 +131,10 @@ const SideBar = ({ onLogoutClick }) => {
                                     className="text-white"
                                     style={{ cursor: 'pointer' }}
                                 >
+                                    <Nav.Link href="/admin-dashboard/student-mgmt" className="text-white text-center ">
                                     <i className="bi bi-people" style={{ fontSize: '1.75rem' }}></i>
+                                    </Nav.Link>
+                                    
                                 </div>
                             </div>
                         ) : (
@@ -168,7 +174,9 @@ const SideBar = ({ onLogoutClick }) => {
                                     className="text-white"
                                     style={{ cursor: 'pointer' }}
                                 >
+                                    <Nav.Link href="/admin-dashboard/course-mgmt" className="text-white text-center ">
                                     <i className="bi bi-book" style={{ fontSize: '1.75rem' }}></i>
+                                    </Nav.Link>
                                 </div>
                             </div>
                         ) : (
@@ -201,7 +209,7 @@ const SideBar = ({ onLogoutClick }) => {
                         )}
 
                         {/* Grade Management */}
-                        {isCollapsed ? (
+                        {/* {isCollapsed ? (
                             <div className="text-center mb-3">
                                 <div 
                                     onClick={() => setOpenGrade(!openGrade)}
@@ -237,7 +245,7 @@ const SideBar = ({ onLogoutClick }) => {
                                     </div>
                                 </Collapse>
                             </div>
-                        )}
+                        )} */}
 
                         {/* Logout Section */}
                         <div className="mt-4 border-top pt-3">

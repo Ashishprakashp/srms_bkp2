@@ -61,14 +61,14 @@ const handleLogout = async () => {
                 ['Faculty Management', 'card-1', '/admin-dashboard/faculty-mgmt'],
                 ['Student Management', 'card-2', '/admin-dashboard/student-mgmt'],
                 ['Course Management', 'card-3', '/admin-dashboard/course-mgmt'],
-                ['Grade Management', 'card-4', '/admin-dashboard/grade-mgmt']
+                // ['Grade Management', 'card-4', '/admin-dashboard/grade-mgmt']
               ].map(([title, cardClass, path], index) => (
                 <Col key={index}>
                   <Card className={`card-bg ${cardClass}`} onClick={() => navigate(path)} >
                     <Card.Body>
                       <Card.Title>{title}</Card.Title>
                       <Card.Text>
-                        {`Manage ${title.toLowerCase()} settings`}
+                        {`Manage ${title.toLowerCase()} activites`}
                       </Card.Text>
                     </Card.Body>
                   </Card>

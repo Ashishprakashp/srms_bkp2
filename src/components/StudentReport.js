@@ -432,17 +432,24 @@ const StudentReport = () => {
         <SideBar/>
         <div className="main-content-ad-dboard flex-grow-1 overflow-y-auto p-4">
           {/* Search Form - Not included in PDF */}
-          <Card className="mb-4">
+          <Card className="mb-4 mt-4">
             <Card.Header>
-              <Button className="float-end px-4" onClick={() => navigate('/admin-dashboard/student-mgmt')}>
-                Back
-              </Button>
+            <Button
+  className="float-end px-4"
+  onClick={() => navigate(
+    sessionStorage.getItem('faculty') 
+      ? '/faculty-dashboard' 
+      : '/admin-dashboard/student-mgmt'
+  )}
+>
+  Back
+</Button>
               <h4>Student Performance Viewer</h4>
             </Card.Header>
             <Card.Body>
               <Form onSubmit={handleSubmit}>
                 <Form.Group controlId="registerNumber" className="mb-3">
-                  <Form.Label>Enter Student Register Number</Form.Label>
+                  <Form.Label className='fs-5'>Enter Student Register Number</Form.Label>
                   <div className="d-flex">
                     <Form.Control
                       type="text"

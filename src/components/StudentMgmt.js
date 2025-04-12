@@ -52,29 +52,66 @@ const StudentMgmt = () => {
             <h1 className="mb-4">Student Management</h1>
 
             {/* Cards Grid */}
-            <Row xs={1} sm={2} md={3} className="g-4">
-              {[
-                ['Create Login', 'card-1', '/admin-dashboard/student-mgmt/create-login'],
-                ['Reset Login', 'card-2', ''],
-                ['Student Details Approval', 'card-3', '/student-details-approval'],
-                ['Semester Enrollment', 'card-4', '/student-enrollment'],
-                ['Semester Grades Approval', 'card-4', '/student-grades-approval'],
-                ['Generate Report', 'card-1', '/student-report'],
-                ['Create/Edit Document Templates', 'card-2', ''],
-                ['Document Approval', 'card-3', ''],
-                ['Query Student Data', 'card-4', '/student-query-system'],
-                ['Data Visualization', 'card-4', ''],
-              ].map(([title, cardClass, path], index) => (
-                <Col key={index}>
-                  <Card className={`card-bg ${cardClass}`} onClick={() => path && navigate(path)}>
-                    <Card.Body>
-                      <Card.Title>{title}</Card.Title>
-                      <Card.Text>{`This is the content of ${title}`}</Card.Text>
-                    </Card.Body>
-                  </Card>
-                </Col>
-              ))}
-            </Row>
+            <Row xs={1} sm={2} md={3} className="g-4 mt-5">
+  {[
+    [
+      'Create Login', 
+      'card1', 
+      '/admin-dashboard/student-mgmt/create-login',
+      'Create new student login credentials '
+    ],
+    [
+      'Reset Login', 
+      'card2', 
+      '',
+      'Reset forgotten passwords for student users'
+    ],
+    [
+      'Student Details Approval', 
+      'card3', 
+      '/student-details-approval',
+      'Initiate, Review and approve student-submitted personal and academic information'
+    ],
+    [
+      'Semester Enrollment', 
+      'card4', 
+      '/student-enrollment',
+      'Initiate and Manage semester enrollment for students'
+    ],
+    [
+      'Semester Grades Approval', 
+      'card4', 
+      '/student-grades-approval',
+      'Initiate, manage and approve final grades of students for each semester'
+    ],
+    [
+      'Generate Report', 
+      'card1', 
+      '/student-report',
+      'Create academic performance report for student'
+    ],
+    [
+      'Query Student Data', 
+      'card4', 
+      '/student-query-system',
+      'Dynamically query and retrieve student academic and personal details'
+    ],
+  ].map(([title, cardClass, path, description], index) => (
+    <Col key={index}>
+      <Card 
+        className={`card-bg ${cardClass}`} 
+        onClick={() => path && navigate(path)}
+      >
+        <Card.Body>
+          <Card.Title>{title}</Card.Title>
+          <Card.Text>
+            {description}
+          </Card.Text>
+        </Card.Body>
+      </Card>
+    </Col>
+  ))}
+</Row>
           </div>
         </div>
       </div>

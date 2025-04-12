@@ -903,6 +903,58 @@ app.post('/studentlogin', async (req, res) => {
   }
 });
 
+//faculty login
+app.post('/facultylogin', async (req, res) => {
+  try {
+    console.log(req.body);
+    const { facultyId, password } = req.body;
+    if (!facultyId || !password) return res.status(400).json({ message: 'Missing credentials' });
+
+    const faculty = await Faculty.findOne({ facultyId });
+    if (!faculty) return res.status(401).json({ message: 'Invalid credentials' });
+
+    const isPasswordValid = await bcrypt.compare(password, faculty.password);
+    if (!isPasswordValid) return res.status(401).json({ message: 'Invalid credentials' });
+
+    req.session.user = { id: faculty._id, facultyId: faculty.facultyId };
+
+    req.session.save(err => {
+      if (err) return res.status(500).json({ message: 'Session save failed' });
+      res.status(200).json({ message: 'Login successful', faculty: { facultyId: faculty.facultyID } });
+    });
+
+  } catch (error) {
+    res.status(500).json({ message: 'Internal server error' });
+  }
+});
+
+app.get('/faculty/:facultyId', async (req, res) => {
+  try {
+    const faculty = await Faculty.findOne(
+      { facultyId: req.params.facultyId },
+      { password: 0, reset: 0, __v: 0 } // Exclude sensitive fields
+    );
+
+    if (!faculty) {
+      return res.status(404).json({ 
+        success: false,
+        message: 'Faculty not found' 
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      data: faculty
+    });
+
+  } catch (error) {
+    console.error('Error fetching faculty:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error'
+    });
+  }
+});
 
 const setFilled = async (studentId) => {
   try {
@@ -2616,7 +2668,9 @@ studentAcc.markModified('arrears');
 app.get('/student-grades/:studentId/:semester/:sess', async (req, res) => {
   try {
     const { studentId, semester ,sess} = req.params;
-    
+    console.log("One: "+studentId);
+    console.log("Two: "+semester);
+    console.log("Three: "+sess);
     // Find the student's grades
     const grades = await StudentGrades.findOne({ studentId:studentId, 'enrolledCourses.session':sess });
     

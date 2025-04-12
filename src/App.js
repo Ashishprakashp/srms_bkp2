@@ -26,6 +26,8 @@ import DynamicQuery from './components/DynamicQuery.js';
 import DynamicQueryComponent from './components/DynamicQueryComponent.js';
 import StudentProfile from './components/StudentProfile.js';
 import StudentReport from './components/StudentReport.js';
+import FacultyLogin from './components/FacultyLogin.js';
+import FacultyDashboard from './components/FacultyDashboard.js';
 // import TemplatesPage from './components/TemplatesPage.js';
 
 function App() {
@@ -34,6 +36,12 @@ function App() {
     
     { title: "Semester Enrollment", description: "Enroll here for each semester"},
     { title: "Semester Grades Upload", description: "Upload your semester grades for verification" },
+  ];
+
+  const facultyServices = [
+    { title: "Generate Report", description: "Generate academic performance report of a student"},
+    
+    { title: "Query Student Data", description: "Dynamically query and retrieve student data"}
   ];
 
   return (
@@ -68,6 +76,8 @@ function App() {
         <Route path="/student-profile" element={<ProtectedRoute role="admin"><StudentProfile/></ProtectedRoute>}></Route>
         {/* <Route path="/document-templates" element={<ProtectedRoute role="admin"><TemplatesPage/></ProtectedRoute>}></Route> */}
         <Route path="/student-login" element={<StudentLogin/>}/>
+        <Route path="/faculty-login" element={<FacultyLogin/>}/>
+        <Route path="/faculty-dashboard"element={<ProtectedRoute role="faculty"><FacultyDashboard services={facultyServices}/></ProtectedRoute>}/>
         <Route path="/student-dashboard" element={<ProtectedRoute role="student"><StudentDashboard services={services3}/></ProtectedRoute>}/>
         <Route path="/semester-enroll" element={<ProtectedRoute role="student"><SemesterEnrollment/></ProtectedRoute>}/>
         <Route path="/student-form" element={<ProtectedRoute role="student"><StudentForm/></ProtectedRoute>}/>

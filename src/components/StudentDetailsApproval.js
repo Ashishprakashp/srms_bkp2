@@ -118,7 +118,7 @@ const StudentDetailsApproval = () => {
             </Button>
             <h1 className="student-approval-title">Student Classes</h1>
 
-            <Row xs={1} sm={2} md={3} className="g-4">
+            <Row xs={1} sm={2} md={3} className="g-4 mt-4">
               {studentGroups.map((group, index) => (  
                 <Col key={index}>
                   <Card className="student-approval-card">

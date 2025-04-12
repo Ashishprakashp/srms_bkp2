@@ -781,7 +781,16 @@ const DynamicQuery = () => {
         <SideBar onLogoutClick={() => setShowLogoutModal(true)} />
         <div className='main-content-ad-dboard flex-grow-1 overflow-y-auto'>
           <div className="p-4">
-            <Button className="float-end px-4" onClick={() => navigate('/admin-dashboard/student-mgmt')}>Back</Button>
+          <Button 
+  className="float-end px-4" 
+  onClick={() => {
+    const isFaculty = sessionStorage.getItem('faculty');
+    
+    navigate(isFaculty ? '/faculty-dashboard' : '/admin-dashboard/student-mgmt');
+  }}
+>
+  Back
+</Button>
             <h2 className="mb-4">Student Query System</h2>
 
             {showLogoutModal && (
@@ -800,7 +809,7 @@ const DynamicQuery = () => {
               </div>
             )}
 
-            <Card className="mb-4">
+            <Card className="mb-4 mt-5">
               <Card.Header>
                 <div className="d-flex justify-content-between align-items-center">
                   <span>Filters</span>

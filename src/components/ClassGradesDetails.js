@@ -592,11 +592,12 @@ const [showRejectModal, setShowRejectModal] = useState(false);
   }
   //console.log("Current session: "+month_+" "+year_);
   // Filter students by semester
+  console.log("selected Semester: "+selectedSemester);
   const gradeFilledStudents = students.filter(
     (student) => student.grades_filled === selectedSemester && student.grades_approved!==month_+" "+year_
   );
   const pendingStudents = students.filter(
-    (student) => student.grades_filled !== selectedSemester && student.grades_approved!==month_+" "+year_
+    (student) => student.grades_filled !== selectedSemester && student.grades_approved!==month_+" "+year_ 
   );
 
   // Pagination functions
@@ -737,6 +738,7 @@ const [showRejectModal, setShowRejectModal] = useState(false);
               </Row>
 
               {/* Enrollment-Pending Students Table */}
+              {enrollmentStatus[selectedSemester] && (
               <Row className="mb-4">
                 <Col>
                   <h2>Grade-Filling-Pending Students (Semester {selectedSemester})</h2>
@@ -801,6 +803,7 @@ const [showRejectModal, setShowRejectModal] = useState(false);
                   )}
                 </Col>
               </Row>
+              )}
 
               {/* Approved Students Table */}
 {/* Approved Students Table */}

@@ -576,6 +576,11 @@ const StudentForm = () => {
         <StudentSideBar />
         {formEnabled ? (
           <Container fluid className="p-4" style={{ overflowY: 'auto', height: 'calc(100vh - 56px)' }}>
+            <div className="d-flex justify-content-end mb-3 me-3">
+                        <Button onClick={() => navigate('/student-dashboard')} className='fs-5 fw-bold'>
+                          Back
+                        </Button>
+                      </div>
             {/* Page Navigation */}
             <Row className="mb-4">
               <Col>

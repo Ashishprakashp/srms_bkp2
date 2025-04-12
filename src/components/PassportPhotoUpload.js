@@ -7,9 +7,26 @@ const PassportPhotoUpload = ({ onImageUpload, uploadedImage, path }) => {
   const [error, setError] = useState("");
 
   useEffect(() => {
-    console.log("Path: "+path);
-    setPreview((path ? `http://localhost:5000/${path}` : "")||uploadedImage );
+    let oldPreview = preview; // capture current value before it's changed
+  
+    if (path) {
+      setPreview(`http://localhost:5000/${path}`);
+    } else if (uploadedImage && typeof uploadedImage === 'string') {
+      setPreview(uploadedImage);
+    } else {
+      setPreview("");
+    }
+  
+    console.log("Path:", path);
+  
+    return () => {
+      if (oldPreview && oldPreview.startsWith("blob:")) {
+        URL.revokeObjectURL(oldPreview); // revoke old blob
+      }
+    };
   }, [uploadedImage, path]);
+  
+  
 
   const onDrop = (acceptedFiles) => {
     const file = acceptedFiles[0];
