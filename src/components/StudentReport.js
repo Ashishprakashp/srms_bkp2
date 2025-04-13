@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { Form, Button, Card, Table, Spinner, Badge } from 'react-bootstrap';
+import { Form, Button, Card, Table, Spinner, Badge ,Col,Row,Container} from 'react-bootstrap';
 import axios from 'axios';
 import TitleBar from './TitleBar.js';
 import SideBar from './SideBar.js';
@@ -430,26 +430,30 @@ const StudentReport = () => {
       <TitleBar />
       <div className="d-flex vh-100">
         <SideBar/>
-        <div className="main-content-ad-dboard flex-grow-1 overflow-y-auto p-4">
+        <div className="main-content-ad-dboard flex-grow-1 overflow-y-auto p-4" style={{ backgroundColor: '#f5f7fb' }}>
           {/* Search Form - Not included in PDF */}
-          <Card className="mb-4 mt-4">
-            <Card.Header>
-            <Button
-  className="float-end px-4"
-  onClick={() => navigate(
-    sessionStorage.getItem('faculty') 
-      ? '/faculty-dashboard' 
-      : '/admin-dashboard/student-mgmt'
-  )}
->
-  Back
-</Button>
-              <h4>Student Performance Viewer</h4>
+          <Card className="mb-4 mt-4 border-0" style={{ boxShadow: '0 2px 8px rgba(0,0,0,0.08)', backgroundColor: '#ffffff' }}>
+            <Card.Header className="bg-primary text-white" style={{ borderBottom: '2px solid #1a73e8' }}>
+              <div className="d-flex justify-content-between align-items-center">
+                <h4 className="mb-0" style={{ fontWeight: 600 }}>Student Performance Viewer</h4>
+                <Button
+                  variant="light"
+                  className="px-4"
+                  style={{ backgroundColor: '#e8f0fe', color: '#1a73e8', fontWeight: 500 }}
+                  onClick={() => navigate(
+                    sessionStorage.getItem('faculty') 
+                      ? '/faculty-dashboard' 
+                      : '/admin-dashboard/student-mgmt'
+                  )}
+                >
+                  Back
+                </Button>
+              </div>
             </Card.Header>
             <Card.Body>
               <Form onSubmit={handleSubmit}>
-                <Form.Group controlId="registerNumber" className="mb-3">
-                  <Form.Label className='fs-5'>Enter Student Register Number</Form.Label>
+                <Form.Group controlId="registerNumber" className="mb-4">
+                  <Form.Label className='fs-5' style={{ color: '#3c4043', fontWeight: 500 }}>Enter Student Register Number</Form.Label>
                   <div className="d-flex">
                     <Form.Control
                       type="text"
@@ -457,8 +461,16 @@ const StudentReport = () => {
                       onChange={(e) => setRegisterNumber(e.target.value)}
                       placeholder="e.g., 2023178110"
                       required
+                      className="py-2"
+                      style={{ border: '1px solid #dadce0', borderRadius: '4px' }}
                     />
-                    <Button variant="primary" type="submit" className="ms-2" disabled={loading}>
+                    <Button 
+                      variant="primary" 
+                      type="submit" 
+                      className="ms-2 px-4 py-2"
+                      disabled={loading}
+                      style={{ fontWeight: 500, backgroundColor: '#1a73e8', border: 'none' }}
+                    >
                       {loading ? (
                         <>
                           <Spinner as="span" animation="border" size="sm" className="me-2" />
@@ -467,19 +479,29 @@ const StudentReport = () => {
                       ) : 'Search'}
                     </Button>
                   </div>
-                  <div className="mt-4 mb-4 float-end">
+                </Form.Group>
+                
+                {studentData && (
+                  <div className="d-flex justify-content-end mt-3">
                     <Button 
                       variant="success" 
                       onClick={handleDownloadPDF}
-                      disabled={!studentData}
+                      className="px-4 py-2"
+                      style={{ fontWeight: 500, backgroundColor: '#0b8043', border: 'none', boxShadow: '0 1px 3px rgba(0,0,0,0.12)' }}
                     >
+                      <i className="bi bi-download me-2"></i>
                       Download Full Report
                     </Button>
                   </div>
-                </Form.Group>
+                )}
               </Form>
 
-              {error && <div className="alert alert-danger mt-3">{error}</div>}
+              {error && (
+                <div className="alert alert-danger mt-3" style={{ backgroundColor: '#fce8e6', color: '#d93025', border: '1px solid #f5c6cb' }}>
+                  <i className="bi bi-exclamation-triangle-fill me-2"></i>
+                  {error}
+                </div>
+              )}
             </Card.Body>
           </Card>
 
@@ -487,54 +509,110 @@ const StudentReport = () => {
           <div ref={pdfRef} className="pdf-content">
             {studentData && (
               <>
-                <Card className="mb-4">
-                  <Card.Header>
-                    <h4>Personal Information</h4>
+                <Card className="mb-4 border-0" style={{ backgroundColor: '#ffffff', boxShadow: '0 2px 8px rgba(0,0,0,0.08)' }}>
+                  <Card.Header className="bg-light" style={{ backgroundColor: '#f8f9fa', borderBottom: '1px solid #e0e0e0' }}>
+                    <h4 className="mb-0" style={{ color: '#202124', fontWeight: 600 }}>
+                      <i className="bi bi-person-vcard me-2" style={{ color: '#1a73e8' }}></i>
+                      Personal Information
+                    </h4>
                   </Card.Header>
                   <Card.Body>
-                    <div className="row">
-                      <div className="col-md-6">
-                        <p><strong>Name:</strong> {studentData.personalInformation?.name || '-'}</p>
-                        <p><strong>Register Number:</strong> {studentData.personalInformation?.register || '-'}</p>
-                        <p><strong>Date of Birth:</strong> 
-                          {studentData.personalInformation?.dob ? 
-                            new Date(studentData.personalInformation.dob).toLocaleDateString() : '-'}
-                        </p>
-                        <p><strong>Gender:</strong> {studentData.personalInformation?.sex || '-'}</p>
-                      </div>
-                      <div className="col-md-6">
-                        <p><strong>Blood Group:</strong> {studentData.personalInformation?.blood || '-'}</p>
-                        <p><strong>Community:</strong> {studentData.personalInformation?.community || '-'}</p>
-                        <p><strong>Email:</strong> {studentData.personalInformation?.mail || '-'}</p>
-                        <p><strong>Contact:</strong> {studentData.personalInformation?.contact || '-'}</p>
-                      </div>
-                    </div>
+                    <Container>
+                      <Row>
+                        <Col md={6}>
+                          <div className="mb-3">
+                            <h6 className="mb-1" style={{ color: '#5f6368', fontWeight: 500 }}>Name</h6>
+                            <p className="fs-5" style={{ color: '#202124', fontWeight: 400 }}>{studentData.personalInformation?.name || '-'}</p>
+                          </div>
+                          <div className="mb-3">
+                            <h6 className="mb-1" style={{ color: '#5f6368', fontWeight: 500 }}>Register Number</h6>
+                            <p className="fs-5" style={{ color: '#202124', fontWeight: 400 }}>{studentData.personalInformation?.register || '-'}</p>
+                          </div>
+                        </Col>
+                        <Col md={6}>
+                          <div className="mb-3">
+                            <h6 className="mb-1" style={{ color: '#5f6368', fontWeight: 500 }}>Date of Birth</h6>
+                            <p className="fs-5" style={{ color: '#202124', fontWeight: 400 }}>
+                              {studentData.personalInformation?.dob ? 
+                                new Date(studentData.personalInformation.dob).toLocaleDateString() : '-'}
+                            </p>
+                          </div>
+                          <div className="mb-3">
+                            <h6 className="mb-1" style={{ color: '#5f6368', fontWeight: 500 }}>Gender</h6>
+                            <p className="fs-5" style={{ color: '#202124', fontWeight: 400 }}>{studentData.personalInformation?.sex || '-'}</p>
+                          </div>
+                        </Col>
+                      </Row>
+                      <Row className="mt-2">
+                        <Col md={6}>
+                          <div className="mb-3">
+                            <h6 className="mb-1" style={{ color: '#5f6368', fontWeight: 500 }}>Blood Group</h6>
+                            <p className="fs-5" style={{ color: '#202124', fontWeight: 400 }}>{studentData.personalInformation?.blood || '-'}</p>
+                          </div>
+                        </Col>
+                        <Col md={6}>
+                          <div className="mb-3">
+                            <h6 className="mb-1" style={{ color: '#5f6368', fontWeight: 500 }}>Community</h6>
+                            <p className="fs-5" style={{ color: '#202124', fontWeight: 400 }}>{studentData.personalInformation?.community || '-'}</p>
+                          </div>
+                        </Col>
+                      </Row>
+                      <Row>
+                        <Col md={6}>
+                          <div className="mb-3">
+                            <h6 className="mb-1" style={{ color: '#5f6368', fontWeight: 500 }}>Email</h6>
+                            <p className="fs-5" style={{ color: '#202124', fontWeight: 400 }}>{studentData.personalInformation?.mail || '-'}</p>
+                          </div>
+                        </Col>
+                        <Col md={6}>
+                          <div className="mb-3">
+                            <h6 className="mb-1" style={{ color: '#5f6368', fontWeight: 500 }}>Contact</h6>
+                            <p className="fs-5" style={{ color: '#202124', fontWeight: 400 }}>{studentData.personalInformation?.contact || '-'}</p>
+                          </div>
+                        </Col>
+                      </Row>
+                    </Container>
                   </Card.Body>
                 </Card>
 
-                <Card className="mb-4">
-                  <Card.Header>
-                    <h4>Academic Summary</h4>
+                <Card className="mb-4 border-0" style={{ backgroundColor: '#ffffff', boxShadow: '0 2px 8px rgba(0,0,0,0.08)' }}>
+                  <Card.Header className="bg-light" style={{ backgroundColor: '#f8f9fa', borderBottom: '1px solid #e0e0e0' }}>
+                    <h4 className="mb-0" style={{ color: '#202124', fontWeight: 600 }}>
+                      <i className="bi bi-graph-up me-2" style={{ color: '#1a73e8' }}></i>
+                      Academic Summary
+                    </h4>
                   </Card.Header>
                   <Card.Body>
-                    <div className="row">
-                      <div className="col-md-3">
-                        <p><strong>CGPA:</strong> {calculateCGPA().toFixed(2)}</p>
-                      </div>
-                      <div className="col-md-3">
-                        <p><strong>Total Credits Earned:</strong> {calculateTotalCredits()}</p>
-                      </div>
-                      <div className="col-md-3">
-                        <p><strong>Total Possible Credits:</strong> 
-                          {Object.values(studentData.semesterSubmissions || {}).reduce(
-                            (sum, sem) => sum + (sem.totalCredits || 0), 0
-                          )}
-                        </p>
-                      </div>
-                      <div className="col-md-3">
-                        <p><strong>Current Semester:</strong> {studentData.enrolled}</p>
-                      </div>
-                    </div>
+                    <Row className="text-center">
+                      <Col md={3} className="mb-3">
+                        <div className="p-3 rounded" style={{ backgroundColor: '#e8f0fe' }}>
+                          <h6 style={{ color: '#5f6368', fontWeight: 500 }}>CGPA</h6>
+                          <h3 style={{ color: '#1a73e8', fontWeight: 600 }}>{calculateCGPA().toFixed(2)}</h3>
+                        </div>
+                      </Col>
+                      <Col md={3} className="mb-3">
+                        <div className="p-3 rounded" style={{ backgroundColor: '#e6f4ea' }}>
+                          <h6 style={{ color: '#5f6368', fontWeight: 500 }}>Credits Earned</h6>
+                          <h3 style={{ color: '#0b8043', fontWeight: 600 }}>{calculateTotalCredits()}</h3>
+                        </div>
+                      </Col>
+                      <Col md={3} className="mb-3">
+                        <div className="p-3 rounded" style={{ backgroundColor: '#fce8e6' }}>
+                          <h6 style={{ color: '#5f6368', fontWeight: 500 }}>Possible Credits</h6>
+                          <h3 style={{ color: '#d93025', fontWeight: 600 }}>
+                            {Object.values(studentData.semesterSubmissions || {}).reduce(
+                              (sum, sem) => sum + (sem.totalCredits || 0), 0
+                            )}
+                          </h3>
+                        </div>
+                      </Col>
+                      <Col md={3} className="mb-3">
+                        <div className="p-3 rounded" style={{ backgroundColor: '#fef7e0' }}>
+                          <h6 style={{ color: '#5f6368', fontWeight: 500 }}>Current Semester</h6>
+                          <h3 style={{ color: '#e37400', fontWeight: 600 }}>{studentData.enrolled}</h3>
+                        </div>
+                      </Col>
+                    </Row>
                   </Card.Body>
                 </Card>
 
@@ -546,6 +624,6 @@ const StudentReport = () => {
       </div>
     </>
   );
-};
+}
 
 export default StudentReport;

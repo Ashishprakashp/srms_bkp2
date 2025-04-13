@@ -31,7 +31,8 @@ const GradeForm = () => {
 
   const gradePoints = {
     'O': 10, 'A+': 9, 'A': 8, 'B+': 7, 'B': 6, 'C': 5, 
-    'RA': 0, 'SA': 0, 'W': 0
+    'RA': 0,
+    //  'SA': 0, 'W': 0
   };
 
   const getRowStyle = (subject) => {
@@ -64,8 +65,8 @@ const GradeForm = () => {
     { value: 'B', description: 'Above Average (50-59)' },
     { value: 'C', description: 'Average (40-49)' },
     { value: 'RA', description: 'Reappear (Below 40)' },
-    { value: 'SA', description: 'Shortage of Attendance' },
-    { value: 'W', description: 'Withdrawal' },
+    // { value: 'SA', description: 'Shortage of Attendance' },
+    // { value: 'W', description: 'Withdrawal' },
   ];
 
   const getBackgroundColor = (type) => {
@@ -311,6 +312,7 @@ const GradeForm = () => {
       setGrades({...originalGrades});
     }
     setIsEditMode(!isEditMode);
+    console.log("session: "+student.can_fill_grades.split(" ")[1] + " " + student.can_fill_grades.split(" ")[2]);
   };
 
   const handleGradeChange = (subjectCode, grade) => {
@@ -549,17 +551,7 @@ const GradeForm = () => {
                               </div>
                             </Col>
                             <Col md={6}>
-                              {Object.keys(semesterCreditsUpdates).length > 0 && (
-                                <div className="mb-2">
-                                  <h6 className="text-muted">Arrear Credits Cleared</h6>
-                                  <div className="d-flex justify-content-between">
-                                    <span>Subjects: {clearedArrears.length}</span>
-                                    <span>
-                                      Credits: {Object.values(semesterCreditsUpdates).reduce((sum, curr) => sum + curr.credits, 0)}
-                                    </span>
-                                  </div>
-                                </div>
-                              )}
+                              
                               {cgpa !== null && (
                                 <>
                                   <div className="d-flex justify-content-between align-items-center mb-2">
@@ -575,6 +567,12 @@ const GradeForm = () => {
                                     </div>
                                   </div>
                                 </>
+                              )}
+                              {Object.keys(semesterCreditsUpdates).length > 0 && (
+                                <div className="mb-2">
+                                  <h6 className="text-muted">Arrears Cleared:  {clearedArrears.length}</h6>
+                                  
+                                </div>
                               )}
                             </Col>
                           </Row>

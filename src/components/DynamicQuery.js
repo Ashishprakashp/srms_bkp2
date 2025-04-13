@@ -32,7 +32,7 @@ const DynamicQuery = () => {
 
   const semesterGpaAttributes = Array.from({ length: maxSemesters }, (_, i) => ({
     label: `Sem ${i + 1} GPA`,
-    path: `grades.semesterSubmissions.${i + 1}.gpa`,
+    path: `grades.semesterSubmissions.${String(i + 1)}.gpa`,
     type: 'number',
     operators: ['equals', 'greaterThan', 'lessThan'],
     inputType: 'number',
@@ -204,7 +204,7 @@ const DynamicQuery = () => {
   const addFilter = () => {
     const newFilter = { 
       id: Date.now(),
-      attributePath: availableAttributes[0].path,
+      attributePath: '',
       operator: availableAttributes[0].operators[0],
       value: '',
       searchTerm: ''
@@ -387,6 +387,37 @@ const DynamicQuery = () => {
     const queryConditions = filters.map(filter => {
       const attribute = availableAttributes.find(a => a.path === filter.attributePath);
       if (!attribute || !filter.value) return null;
+
+      // In buildQuery() function, modify the semester GPA handling
+if (filter.attributePath.startsWith('grades.')) {
+  const parts = filter.attributePath.split('.');
+  const semester = parts[2];
+  const field = parts[3];
+  
+  // Convert value to number for GPA comparisons
+  const numericValue = parseFloat(filter.value);
+  if (isNaN(numericValue)) return null;
+
+  // Special handling for GPA comparisons
+  if (field === 'gpa') {
+    const operatorMap = {
+      'equals': '$eq',
+      'greaterThan': '$gt',
+      'lessThan': '$lt'
+    };
+    
+    return {
+      [`grades.semesterSubmissions.${String(semester)}.${field}`]: {
+        [operatorMap[filter.operator]]: numericValue
+      }
+    };
+  }
+  
+  // For other semester fields
+  return {
+    [`grades.semesterSubmissions.${String(semester)}.${field}`]: filter.value
+  };
+}
 
       // Handle arrears specially
       if (filter.attributePath === 'arrears') {
@@ -779,29 +810,42 @@ const DynamicQuery = () => {
       <TitleBar />
       <div className="d-flex vh-100">
         <SideBar onLogoutClick={() => setShowLogoutModal(true)} />
-        <div className='main-content-ad-dboard flex-grow-1 overflow-y-auto'>
+        <div className='main-content-ad-dboard flex-grow-1 overflow-y-auto' style={{ backgroundColor: '#f8f9fa' }}>
           <div className="p-4">
-          <Button 
-  className="float-end px-4" 
-  onClick={() => {
-    const isFaculty = sessionStorage.getItem('faculty');
-    
-    navigate(isFaculty ? '/faculty-dashboard' : '/admin-dashboard/student-mgmt');
-  }}
->
-  Back
-</Button>
-            <h2 className="mb-4">Student Query System</h2>
+            <Button 
+              className="float-end px-4" 
+              variant="outline-primary"
+              style={{ borderWidth: '2px', fontWeight: '500' }}
+              onClick={() => {
+                const isFaculty = sessionStorage.getItem('faculty');
+                navigate(isFaculty ? '/faculty-dashboard' : '/admin-dashboard/student-mgmt');
+              }}
+            >
+              <i className="bi bi-arrow-left me-2"></i>Back
+            </Button>
+            <h2 className="mb-4" style={{ color: '#2c3e50', fontWeight: '600' }}>
+              <i className="bi bi-search me-2"></i>Student Query System
+            </h2>
 
             {showLogoutModal && (
               <div className="logout-modal-overlay">
-                <div className="logout-modal-content p-5">
-                  <h3 className='text-center'>Confirm Logout ?</h3>
-                  <div className="modal-buttons mt-5" style={{ display: 'flex', justifyContent: 'center' }}>
-                    <Button variant="secondary" className='fs-5 px-5' onClick={() => setShowLogoutModal(false)}>
+                <div className="logout-modal-content p-4" style={{ backgroundColor: 'white', borderRadius: '8px', maxWidth: '500px' }}>
+                  <h3 className='text-center mb-4' style={{ color: '#2c3e50' }}>Confirm Logout</h3>
+                  <div className="modal-buttons mt-4 d-flex justify-content-center gap-3">
+                    <Button 
+                      variant="outline-secondary" 
+                      className='px-4 py-2' 
+                      style={{ fontWeight: '500', minWidth: '100px' }}
+                      onClick={() => setShowLogoutModal(false)}
+                    >
                       Cancel
                     </Button>
-                    <Button variant="danger" className='fs-5 px-5' onClick={handleLogout}>
+                    <Button 
+                      variant="danger" 
+                      className='px-4 py-2' 
+                      style={{ fontWeight: '500', minWidth: '100px' }}
+                      onClick={handleLogout}
+                    >
                       Logout
                     </Button>
                   </div>
@@ -809,57 +853,82 @@ const DynamicQuery = () => {
               </div>
             )}
 
-            <Card className="mb-4 mt-5">
-              <Card.Header>
+            <Card className="mb-4 border-0 shadow-sm">
+              <Card.Header className="bg-primary text-white" style={{ borderBottom: '2px solid #1a73e8' }}>
                 <div className="d-flex justify-content-between align-items-center">
-                  <span>Filters</span>
+                  <span style={{ fontWeight: '500' }}>Filters</span>
                   <div>
-                    <Button variant="primary" onClick={addFilter} className="me-2">
-                      Add Filter
+                    <Button 
+                      variant="light" 
+                      onClick={addFilter} 
+                      className="me-2"
+                      style={{ fontWeight: '500' }}
+                    >
+                      <i className="bi bi-plus-circle me-2"></i>Add Filter
                     </Button>
-                    <Button variant="secondary" onClick={resetFilters}>
-                      Reset
+                    <Button 
+                      variant="outline-light" 
+                      onClick={resetFilters}
+                      style={{ fontWeight: '500' }}
+                    >
+                      <i className="bi bi-arrow-counterclockwise me-2"></i>Reset
                     </Button>
                   </div>
                 </div>
               </Card.Header>
-              <Card.Body>
-        {filters.length === 0 ? (
-          <div className="text-center text-muted py-3">
-            No filters added. Click "Add Filter" to start querying.
-          </div>
-        ) : (
-          <>
-            {renderFilters()}
-            <div className="d-flex justify-content-end mt-3">
-              <Button variant="success" onClick={fetchStudents} disabled={loading}>
-                {loading ? (
+              <Card.Body style={{ backgroundColor: '#f8f9fa' }}>
+                {filters.length === 0 ? (
+                  <div className="text-center text-muted py-3">
+                    No filters added. Click "Add Filter" to start querying.
+                  </div>
+                ) : (
                   <>
-                    <Spinner as="span" animation="border" size="sm" className="me-2" />
-                    Searching...
+                    {renderFilters()}
+                    <div className="d-flex justify-content-end mt-3 gap-2">
+                      <Button 
+                        variant="primary" 
+                        onClick={fetchStudents} 
+                        disabled={loading}
+                        style={{ fontWeight: '500' }}
+                      >
+                        {loading ? (
+                          <>
+                            <Spinner as="span" animation="border" size="sm" className="me-2" />
+                            Searching...
+                          </>
+                        ) : (
+                          <>
+                            <i className="bi bi-search me-2"></i>Search Students
+                          </>
+                        )}
+                      </Button>
+                      <Button 
+                        variant="success" 
+                        onClick={downloadExcel} 
+                        disabled={students.length === 0}
+                        style={{ fontWeight: '500' }}
+                      >
+                        <i className="bi bi-file-earmark-excel me-2"></i>Excel
+                      </Button>
+                      <Button 
+                        variant="danger" 
+                        onClick={downloadPDF} 
+                        disabled={students.length === 0}
+                        style={{ fontWeight: '500' }}
+                      >
+                        <i className="bi bi-file-earmark-pdf me-2"></i>PDF
+                      </Button>
+                    </div>
                   </>
-                ) : 'Search Students'}
-              </Button>
-              <Button 
-    variant="danger" 
-    onClick={downloadPDF} 
-    disabled={students.length === 0} 
-    className='ms-3'
-  >
-    Download PDF
-  </Button>
-              <Button variant="primary" onClick={downloadExcel} disabled={students.length === 0} className='ms-5'>
-                Download Excel
-              </Button>
-            </div>
-          </>
-        )}
-      </Card.Body>
+                )}
+              </Card.Body>
             </Card>
 
-            <Card>
-              <Card.Header>Results ({students.length} students found)</Card.Header>
-              <Card.Body>
+            <Card className="border-0 shadow-sm">
+              <Card.Header className="bg-primary text-white">
+                <span style={{ fontWeight: '500' }}>Results ({students.length} students found)</span>
+              </Card.Header>
+              <Card.Body style={{ padding: '0' }}>
                 {loading ? (
                   <div className="text-center py-4">
                     <Spinner animation="border" variant="primary" />
@@ -867,24 +936,86 @@ const DynamicQuery = () => {
                   </div>
                 ) : students.length > 0 ? (
                   <div className="table-responsive">
-                    <Table striped bordered hover>
+                    <Table bordered hover className="mb-0" style={{ borderColor: '#000' }}>
                       <thead>
-                        <tr>
-                          <th>S.no</th>
-                          <th onClick={() => requestSort('studentId')} style={{ cursor: 'pointer' }}>
-                            Register No{getSortIndicator('studentId')}
+                        <tr style={{ backgroundColor: '#f1f3f5' }}>
+                          <th style={{ 
+                            backgroundColor: '#e9ecef', 
+                            borderColor: '#000',
+                            fontWeight: '600',
+                            borderWidth: '1px'
+                          }}>S.no</th>
+                          <th 
+                            onClick={() => requestSort('studentId')} 
+                            style={{ 
+                              cursor: 'pointer',
+                              backgroundColor: sortConfig.key === 'studentId' ? '#e2e8f0' : '#e9ecef',
+                              borderColor: '#000',
+                              fontWeight: '600',
+                              borderWidth: '1px'
+                            }}
+                          >
+                            <div className="d-flex align-items-center justify-content-between">
+                              Register No
+                              {sortConfig.key === 'studentId' && (
+                                <i className={`bi bi-chevron-${sortConfig.direction === 'asc' ? 'up' : 'down'}`}></i>
+                              )}
+                            </div>
                           </th>
-                          <th onClick={() => requestSort('name')} style={{ cursor: 'pointer' }}>
-                            Name{getSortIndicator('name')}
+                          <th 
+                            onClick={() => requestSort('name')} 
+                            style={{ 
+                              cursor: 'pointer',
+                              backgroundColor: sortConfig.key === 'name' ? '#e2e8f0' : '#e9ecef',
+                              borderColor: '#000',
+                              fontWeight: '600',
+                              borderWidth: '1px'
+                            }}
+                          >
+                            <div className="d-flex align-items-center justify-content-between">
+                              Name
+                              {sortConfig.key === 'name' && (
+                                <i className={`bi bi-chevron-${sortConfig.direction === 'asc' ? 'up' : 'down'}`}></i>
+                              )}
+                            </div>
                           </th>
-                          <th onClick={() => requestSort('branch')} style={{ cursor: 'pointer' }}>
-                            Branch{getSortIndicator('branch')}
+                          <th 
+                            onClick={() => requestSort('branch')} 
+                            style={{ 
+                              cursor: 'pointer',
+                              backgroundColor: sortConfig.key === 'branch' ? '#e2e8f0' : '#e9ecef',
+                              borderColor: '#000',
+                              fontWeight: '600',
+                              borderWidth: '1px'
+                            }}
+                          >
+                            <div className="d-flex align-items-center justify-content-between">
+                              Branch
+                              {sortConfig.key === 'branch' && (
+                                <i className={`bi bi-chevron-${sortConfig.direction === 'asc' ? 'up' : 'down'}`}></i>
+                              )}
+                            </div>
                           </th>
                           {queriedAttributes.map(path => {
                             const attr = availableAttributes.find(a => a.path === path);
                             return (
-                              <th key={path} onClick={() => requestSort(path)} style={{ cursor: 'pointer' }}>
-                                {attr?.label || path}{getSortIndicator(path)}
+                              <th 
+                                key={path} 
+                                onClick={() => requestSort(path)} 
+                                style={{ 
+                                  cursor: 'pointer',
+                                  backgroundColor: sortConfig.key === path ? '#e2e8f0' : '#e9ecef',
+                                  borderColor: '#000',
+                                  fontWeight: '600',
+                                  borderWidth: '1px'
+                                }}
+                              >
+                                <div className="d-flex align-items-center justify-content-between">
+                                  {attr?.label || path}
+                                  {sortConfig.key === path && (
+                                    <i className={`bi bi-chevron-${sortConfig.direction === 'asc' ? 'up' : 'down'}`}></i>
+                                  )}
+                                </div>
                               </th>
                             );
                           })}
@@ -892,11 +1023,13 @@ const DynamicQuery = () => {
                       </thead>
                       <tbody>
                         {currentStudents.map((student,index) => (
-                          <tr key={student._id}>
-                            <td>{(currentPage - 1) * studentsPerPage + index + 1}</td>
-                            <td>{student.studentId}</td>
-                            <td>{student.name}</td>
-                            <td>{student.branch}</td>
+                          <tr key={student._id} style={{ borderColor: '#000' }}>
+                            <td style={{ borderColor: '#000', borderWidth: '1px' }}>
+                              {(currentPage - 1) * studentsPerPage + index + 1}
+                            </td>
+                            <td style={{ borderColor: '#000', borderWidth: '1px' }}>{student.studentId}</td>
+                            <td style={{ borderColor: '#000', borderWidth: '1px' }}>{student.name}</td>
+                            <td style={{ borderColor: '#000', borderWidth: '1px' }}>{student.branch}</td>
                             {queriedAttributes.map(path => {
                               let value;
                               if (path === 'arrears') {
@@ -904,13 +1037,19 @@ const DynamicQuery = () => {
                               } else {
                                 value = getNestedValue(student, path);
                               }
-                              return <td key={path}>{value === '-' ? '' : value}</td>;
+                              return (
+                                <td key={path} style={{ borderColor: '#000', borderWidth: '1px' }}>
+                                  {value === '-' ? '' : value}
+                                </td>
+                              );
                             })}
                           </tr>
                         ))}
                       </tbody>
                     </Table>
-                    <PaginationComponent />
+                    <div className="p-3" style={{ backgroundColor: '#f8f9fa', borderTop: '1px solid #000' }}>
+                      <PaginationComponent />
+                    </div>
                   </div>
                 ) : (
                   <div className="text-center py-4 text-muted">
@@ -924,6 +1063,6 @@ const DynamicQuery = () => {
       </div>
     </>
   );
-};
+}
 
 export default DynamicQuery;

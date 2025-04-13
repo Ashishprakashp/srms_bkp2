@@ -3055,7 +3055,8 @@ app.post('/query-students', async (req, res) => {
         }
       });
     }
-
+    console.log("Received query:", JSON.stringify(query, null, 2));
+    console.log("Grades conditions:", JSON.stringify(gradesConditions, null, 2));
     // 3. Build postMatches after processing conditions
     if (detailsConditions.length > 0) postMatches.push({ 'details.0': { $exists: true } });
     if (gradesConditions.length > 0) postMatches.push({ 'grades.0': { $exists: true } });
@@ -3073,6 +3074,7 @@ app.post('/query-students', async (req, res) => {
       },
 
       // Grades lookup
+      // In the grades lookup pipeline, modify the match stage:
       {
         $lookup: {
           from: 'studentgrades',
@@ -3080,9 +3082,32 @@ app.post('/query-students', async (req, res) => {
           pipeline: [
             {
               $match: {
-                $expr: { $eq: ['$studentId', '$$registerNumber'] },
-                ...(gradesConditions.length > 0 ? { $and: gradesConditions } : {})
+                $expr: { $eq: ['$studentId', '$$registerNumber'] }
               }
+            },
+            // Convert Map to queryable structure
+            {
+              $addFields: {
+                semesterSubmissions: {
+                  $arrayToObject: {
+                    $map: {
+                      input: { $objectToArray: "$semesterSubmissions" },
+                      in: {
+                        k: "$$this.k",
+                        v: {
+                          gpa: { $ifNull: [{ $toDouble: "$$this.v.gpa" }, 0] },
+                          totalCredits: { $ifNull: [{ $toDouble: "$$this.v.totalCredits" }, 0] },
+                          scoredCredits: { $ifNull: [{ $toDouble: "$$this.v.scoredCredits" }, 0] }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            // Now apply the filters
+            {
+              $match: gradesConditions.length > 0 ? { $and: gradesConditions } : {}
             }
           ],
           as: 'grades'
@@ -3194,8 +3219,10 @@ app.post('/query-students', async (req, res) => {
       }
     ];
 
+    console.log(pipeline);
     // 5. Execute aggregation
     const results = await StudentAcc.aggregate(pipeline).exec();
+    console.log("Result: "+results.data);
     res.json(results);
 
   } catch (error) {
