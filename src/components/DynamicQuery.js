@@ -74,14 +74,14 @@ const DynamicQuery = () => {
       label: 'Community',
       path: 'personalInformation.community',
       type: 'enum',
-      enumOptions: ['OC', 'BC', 'MBC', 'SC', 'ST'],
+      enumOptions: ['','OC', 'BC', 'MBC', 'SC', 'ST'],
       operators: ['equals']
     },
     {
       label: 'Sex',
       path: 'personalInformation.sex',
       type: 'enum',
-      enumOptions: ['M', 'F'],
+      enumOptions: ['','M', 'F'],
       operators: ['equals']
     },
     {
@@ -138,7 +138,7 @@ const DynamicQuery = () => {
       label: 'Class',
       path: 'account._class',
       type: 'enum',
-      enumOptions: ['REG', 'SS'],
+      enumOptions: ['','REG', 'SS'],
       operators: ['equals']
     },
     {

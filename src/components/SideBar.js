@@ -102,10 +102,10 @@ const SideBar = ({ onLogoutClick }) => {
                                     aria-expanded={openFaculty}
                                     className="text-white"
                                     style={{ cursor: 'pointer' }}
-                                    href="admin-dashboard/faculty-mgmt"
+                                    href="/admin-dashboard/faculty-mgmt"
                                 >
                                     Faculty Management
-                                    <i className={`bi ${openFaculty ? 'bi-chevron-up' : 'bi-chevron-down'} float-end`}></i>
+                                    
                                 </Nav.Link>
                                 <Collapse in={openFaculty}>
                                     <div id="faculty-collapse" className="ms-3">
@@ -148,7 +148,7 @@ const SideBar = ({ onLogoutClick }) => {
                                     href="/admin-dashboard/student-mgmt"
                                 >
                                     Student Management
-                                    <i className={`bi ${openStudent ? 'bi-chevron-up' : 'bi-chevron-down'} float-end`}></i>
+                                   
                                 </Nav.Link>
                                 <Collapse in={openStudent}>
                                     <div id="student-collapse" className="ms-3">
@@ -190,7 +190,7 @@ const SideBar = ({ onLogoutClick }) => {
                                     href="/admin-dashboard/course-mgmt"
                                 >
                                     Course Management
-                                    <i className={`bi ${openCourse ? 'bi-chevron-up' : 'bi-chevron-down'} float-end`}></i>
+                                    
                                 </Nav.Link>
                                 <Collapse in={openCourse}>
                                     <div id="course-collapse" className="ms-3">

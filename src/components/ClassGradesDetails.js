@@ -1095,7 +1095,7 @@ const [showRejectModal, setShowRejectModal] = useState(false);
                         </Badge>
                       </td>
                       <td>
-                        {course.isArrear ? (
+                        {course.isReEnrolled ? (
                           <span className="text-muted">
                             <i className="bi bi-arrow-repeat me-1"></i>
                             Re-enrolled

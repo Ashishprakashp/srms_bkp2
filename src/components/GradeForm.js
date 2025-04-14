@@ -328,8 +328,8 @@ const GradeForm = () => {
   const handleFileChange = (e) => {
     const file = e.target.files[0];
     if (file && file.type === 'application/pdf') {
-      if (file.size > 5 * 1024 * 1024) {
-        alert('File size should not exceed 5MB');
+      if (file.size > 500 * 1024) {
+        alert('File size should not exceed 500KB');
         e.target.value = '';
       } else {
         setMarksheet(file);
